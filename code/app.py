@@ -1,6 +1,6 @@
 import streamlit as st
 # Must be the first Streamlit command
-st.set_page_config(layout="wide", page_title="SafePay", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="SafePay", initial_sidebar_state="expanded")
 
 import pandas as pd
 import os
@@ -108,466 +108,113 @@ def generate_docx(data_dict, req_id):
 # SYSTEMIC CSS FOR HIGH CONTRAST & SINGLE PAGE LOOK
 # ---------------------------------------------------------
 def inject_main_css():
-    theme = st.session_state.get('theme', 'light')
-    if theme == 'dark':
-        bg = "#0F172A"          
-        text = "#F8FAFC"        
-        card_bg = "#1E293B"     
-        subtext = "#CBD5E1"     
-        border = "#334155"
-        alert_bg = "rgba(255,255,255,0.05)"
-    else:
-        bg = "#F8FAFC"          
-        text = "#0F172A"        
-        card_bg = "#FFFFFF"     
-        subtext = "#475569"     
-        border = "#E2E8F0"
-        alert_bg = "rgba(0,0,0,0.02)"
-
-    st.markdown(f"""
+    st.markdown('''
     <style>
         /* Base styles */
-        .stApp {{
-            background-color: {bg};
-            color: {text};
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }}
-        
-        /* Reduce Top Padding of Streamlit App */
-        .block-container {{
-            padding-top: 1.5rem !important;
-            padding-bottom: 2rem !important;
-            max-width: 1200px;
-        }}
-        
-        /* Hide Default Header elements */
-        [data-testid='stHeader'] {{ display: none; }}
-        #MainMenu {{ visibility: hidden; }}
-        footer {{ visibility: hidden; }}
-        
-        /* High Contrast Form Inputs (Text Area & Search) */
-        div[data-baseweb='textarea'] textarea,
-        div[data-baseweb='input'] input {{
-            color: {text} !important;
-            background-color: {card_bg} !important;
-            -webkit-text-fill-color: {text} !important;
-        }}
-        div[data-baseweb='textarea']:focus-within,
-        div[data-baseweb='input']:focus-within {{
-            border-color: #3B82F6 !important;
-            box-shadow: 0 0 0 1px #3B82F6 !important;
-        }}
-        
-        /* SYSTEMIC BUTTON CLASSES (Navy/Gold Theme) */
-        
-        /* Primary Buttons (Login, Save Note) */
-        div[data-testid='stButton'] button[kind='primary'],
-        div[data-testid='stFormSubmitButton'] button {{
-            background-color: #D4AF37 !important; /* Gold */
-            border-color: #D4AF37 !important;
-            border-radius: 8px !important;
-        }}
-        div[data-testid='stButton'] button[kind='primary'] p,
-        div[data-testid='stFormSubmitButton'] button p {{
-            color: #0F172A !important; /* Navy */
-            font-weight: 700 !important;
-        }}
-        
-        /* Secondary Buttons & Popovers */
-        div[data-testid='stButton'] button[kind='secondary'],
-        div[data-testid='stDownloadButton'] button,
-        div[data-testid='stPopover'] button {{
-            background-color: #1E293B !important; /* Navy */
-            border-color: #334155 !important;
-            border-radius: 8px !important;
-        }}
-        div[data-testid='stButton'] button[kind='secondary'] p,
-        div[data-testid='stDownloadButton'] button p,
-        div[data-testid='stPopover'] button p {{
-            color: #F8FAFC !important; /* White */
-            font-weight: 600 !important;
-        }}
-        
-        /* Hover states */
-        div[data-testid='stButton'] button[kind='primary']:hover,
-        div[data-testid='stFormSubmitButton'] button:hover {{
-            background-color: #FBBF24 !important;
-            border-color: #FBBF24 !important;
-        }}
-        div[data-testid='stButton'] button[kind='secondary']:hover,
-        div[data-testid='stDownloadButton'] button:hover,
-        div[data-testid='stPopover'] button:hover {{
-            background-color: #334155 !important;
-            border-color: #475569 !important;
-        }}
-        
-        /* Streamlit Native Container Styling */
-        div[data-testid='stVerticalBlockBorderWrapper'] {{
-            border-radius: 12px !important;
-            background-color: {card_bg} !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
-            border: 1px solid {border} !important;
-            padding: 12px !important;
-            margin-bottom: 0px !important;
-        }}
-        
-        /* HTML Card Styling */
-        .safepay-card {{
-            background: {card_bg};
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-            border: 1px solid {border};
-            margin-bottom: 16px;
-        }}
-        
-        .dark-card {{
-            background-color: #0F172A; /* Deep Navy */
-            border-radius: 12px;
-            padding: 40px 24px;
-            color: #F8FAFC;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        }}
-        
-        /* Adjust Spacing */
-        .section-header {{
-            font-size: 14px;
-            font-weight: 700;
-            color: {subtext};
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            margin-top: 24px;
-            display: flex;
-            align-items: center;
-        }}
-        
-        /* Headings */
-        h1, h2, h3, h4 {{ color: {text}; }}
-        h1 {{ font-size: 26px !important; font-weight: 700 !important; margin-bottom: 0!important; padding-bottom: 0!important;}}
-        
-        /* Metric box */
-        .metric-box {{
-            padding: 16px;
-            border-radius: 8px;
-            background: {alert_bg};
-            border: 1px solid {border};
-        }}
-        .metric-label {{ font-size: 12px; color: {subtext}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}}
-        .metric-value {{ font-size: 24px; font-weight: 700; color: {text}; margin-top: 4px; }}
-        
-        /* Top Bar Wrapper */
-        .top-bar-wrapper {{
-            border-bottom: 1px solid {border};
-            padding-bottom: 16px;
-            margin-bottom: 16px;
-        }}
-        
-        hr {{ border-color: {border}; margin: 16px 0; }}
-    </style>
-    """, unsafe_allow_html=True)
-
-def inject_login_css():
-    st.markdown("""
-    <style>
-        /* Hide Default Header elements */
-        [data-testid="stHeader"] { display: none; }
-        #MainMenu { visibility: hidden; }
-        footer { visibility: hidden; }
-        
         .stApp {
-            background-color: #FFFFFF;
-            color: #0F172A;
+            background-color: #F4F7FE;
+            color: #2B3674;
             font-family: 'Inter', -apple-system, sans-serif;
+        }
+        
+        [data-testid="stSidebar"] {
+            background-color: #FFFFFF !important;
+            border-right: 1px solid #E2E8F0;
+        }
+        
+        /* Typography overrides */
+        h1, h2, h3, h4, p { color: #2B3674; margin-bottom: 8px; }
+        h4 { font-size: 18px; font-weight: 700; margin-top: 0; }
+        
+        /* Metric box / Cards */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            border-radius: 20px !important;
+            background-color: #FFFFFF !important;
+            box-shadow: 0 10px 30px rgba(112, 144, 176, 0.08) !important;
+            border: none !important;
+            padding: 20px !important;
+            margin-bottom: 20px !important;
+        }
+        
+        /* Metrics Specific */
+        .fs-metric-label { font-size: 14px; color: #A3AED0; font-weight: 500; display: flex; justify-content: space-between; }
+        .fs-metric-label span.icon { width: 24px; height: 24px; background: #F4F7FE; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #157F87; }
+        .fs-metric-value { font-size: 32px; font-weight: 700; color: #2B3674; margin: 8px 0; }
+        .fs-metric-pill { 
+            display: inline-block; padding: 4px 10px; border-radius: 16px; 
+            font-size: 12px; font-weight: 700; 
+        }
+        .fs-pill-green { background: #ECFDF5; color: #05CD99; }
+        .fs-pill-red { background: #FEF2F2; color: #EE5D50; }
+        .fs-pill-neutral { background: #F4F7FE; color: #A3AED0; }
+        
+        /* Primary Buttons */
+        div[data-testid="stButton"] button[kind="primary"] {
+            background-color: #157F87 !important;
+            border-color: #157F87 !important;
+            border-radius: 16px !important;
+        }
+        div[data-testid="stButton"] button[kind="primary"] p {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
+        div[data-testid="stButton"] button[kind="primary"]:hover {
+            background-color: #11676E !important;
+        }
+        
+        /* Secondary Buttons */
+        div[data-testid="stButton"] button[kind="secondary"],
+        div[data-testid="stDownloadButton"] button {
+            background-color: #F4F7FE !important;
+            border-color: #F4F7FE !important;
+            border-radius: 16px !important;
+        }
+        div[data-testid="stButton"] button[kind="secondary"] p,
+        div[data-testid="stDownloadButton"] button p {
+            color: #2B3674 !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Text Area / Inputs */
+        div[data-baseweb="textarea"] textarea, div[data-baseweb="input"] input, div[data-baseweb="select"] {
+            background: #F4F7FE !important;
+            border-color: #F4F7FE !important;
+            border-radius: 12px !important;
+            color: #2B3674 !important;
+            -webkit-text-fill-color: #2B3674 !important;
+        }
+        
+        /* Sidebar Logo */
+        .sidebar-logo {
+            font-size: 28px; font-weight: 800; color: #2B3674;
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 40px;
+            padding-left: 12px;
+        }
+        
+        /* Sidebar Menu Items */
+        .sidebar-menu-item {
+            padding: 14px 20px;
+            border-radius: 16px;
+            margin-bottom: 8px;
+            color: #A3AED0;
+            font-weight: 700;
+            display: flex; align-items: center; gap: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sidebar-menu-item.active {
+            background-color: #157F87;
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px rgba(21, 127, 135, 0.3);
         }
         
         .block-container {
             padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
             max-width: 1400px;
         }
-        
-        /* Typography overrides */
-        h1, h2, h3, p { color: #0F172A; }
-        
-        /* Inputs */
-        div[data-baseweb="input"] {
-            border-radius: 8px !important;
-            border-color: #E2E8F0 !important;
-        }
-        div[data-baseweb="input"] input {
-            color: #0F172A !important;
-            background-color: #FFFFFF !important;
-            -webkit-text-fill-color: #0F172A !important;
-            padding: 12px 14px !important;
-        }
-        div[data-baseweb="input"]:focus-within {
-            border-color: #157F87 !important;
-            box-shadow: 0 0 0 1px #157F87 !important;
-        }
-        
-        /* Primary Button */
-        div[data-testid="stFormSubmitButton"] button {
-            background-color: #157F87 !important;
-            border-color: #157F87 !important;
-            border-radius: 8px !important;
-            padding: 12px !important;
-            width: 100% !important;
-        }
-        div[data-testid="stFormSubmitButton"] button p {
-            color: #FFFFFF !important;
-            font-weight: 600 !important;
-            font-size: 16px !important;
-        }
-        div[data-testid="stFormSubmitButton"] button:hover {
-            background-color: #11676E !important;
-            border-color: #11676E !important;
-        }
-        
-        /* Right Panel */
-        .login-right-panel {
-            background: linear-gradient(180deg, #053D42 0%, #032124 100%);
-            border-radius: 24px;
-            height: 85vh;
-            padding: 48px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            align-items: center;
-            text-align: center;
-            color: white;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .login-right-panel::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-            background-size: 40px 40px;
-            opacity: 0.5;
-            pointer-events: none;
-        }
-        
-        .login-right-panel h2 {
-            color: white !important;
-            font-size: 32px !important;
-            font-weight: 700 !important;
-            margin-bottom: 16px !important;
-            line-height: 1.3 !important;
-            z-index: 1;
-        }
-        .login-right-panel p {
-            color: #94A3B8 !important;
-            font-size: 16px !important;
-            line-height: 1.6 !important;
-            max-width: 400px;
-            z-index: 1;
-        }
-        
-        .login-logo {
-            font-size: 24px;
-            font-weight: 700;
-            color: #157F87;
-            display: flex;
-            align-items: center;
-            margin-bottom: 32px;
-        }
-        
-        /* Tabs */
-        .login-tabs {
-            display: flex;
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 32px;
-            margin-top: 16px;
-        }
-        .login-tab-active {
-            flex: 1;
-            background: white;
-            color: #0F172A;
-            font-weight: 600;
-            text-align: center;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .login-tab-inactive {
-            flex: 1;
-            color: #64748B;
-            font-weight: 500;
-            text-align: center;
-            padding: 10px;
-        }
-        
-        /* Divider */
-        .divider {
-            display: flex;
-            align-items: center;
-            text-align: center;
-            color: #94A3B8;
-            margin: 24px 0;
-            font-size: 14px;
-        }
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #E2E8F0;
-        }
-        .divider:not(:empty)::before { margin-right: 12px; }
-        .divider:not(:empty)::after { margin-left: 12px; }
-        
-        /* Social */
-        .social-row {
-            display: flex;
-            justify-content: center;
-            gap: 16px;
-            margin-bottom: 32px;
-        }
-        .social-btn {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: 1px solid #E2E8F0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: white;
-            color: #0F172A;
-            font-weight: bold;
-            font-size: 18px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            cursor: pointer;
-        }
-        
-        /* Helper to center the left column content */
-        .left-col-inner {
-            padding: 24px 48px;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        
-        /* Mock Cards */
-        .mock-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            color: #0F172A;
-            width: 80%;
-            text-align: left;
-            z-index: 1;
-        }
     </style>
-    """, unsafe_allow_html=True)
-
-def login_ui():
-    inject_login_css()
-    
-    col_left, col_right = st.columns([1, 1.2], gap="large")
-    
-    with col_left:
-        st.markdown("""
-        <div class="left-col-inner">
-            <div class="login-logo">
-                <span style="margin-right: 8px;">🏦</span> SafePay
-            </div>
-            
-            <h1 style="font-size: 32px !important; margin-bottom: 8px !important;">Welcome to SafePay</h1>
-            <p style="color: #64748B; margin-bottom: 24px; font-size: 15px;">Start your experience with SafePay by signing in or signing up.</p>
-            
-            <div class="login-tabs">
-                <div class="login-tab-active">Sign In</div>
-                <div class="login-tab-inactive">Sign Up</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.container():
-            col_pad_l, col_form, col_pad_r = st.columns([0.15, 0.7, 0.15])
-            with col_form:
-                with st.form("login_form"):
-                    st.markdown("**User ID <span style='color: #157F87;'>*</span>**", unsafe_allow_html=True)
-                    username = st.text_input("User ID", placeholder="Enter your user ID", label_visibility="collapsed")
-                    
-                    st.markdown("**Password <span style='color: #157F87;'>*</span>**", unsafe_allow_html=True)
-                    password = st.text_input("Password", type="password", placeholder="Enter your password", label_visibility="collapsed")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    submitted = st.form_submit_button("Sign In")
-                    
-                    if submitted:
-                        if username and password:
-                            uuid_val = authenticate(username, password)
-                            if uuid_val:
-                                st.session_state['authenticated_uuid'] = uuid_val
-                                st.session_state['dataset_user_id'] = username
-                                st.rerun()
-                            else:
-                                st.error("Authentication failed. Invalid credentials.")
-                        else:
-                            st.error("Please provide both User ID and Password.")
-                
-                st.markdown("""
-                <div class="divider">Or continue with</div>
-                <div class="social-row">
-                    <div class="social-btn"><span style="color: #EA4335;">G</span></div>
-                    <div class="social-btn"></div>
-                    <div class="social-btn"><span style="color: #1877F2;">f</span></div>
-                    <div class="social-btn">𝕏</div>
-                </div>
-                
-                <div style="text-align: center; color: #94A3B8; font-size: 12px; margin-top: 32px;">
-                    Copyright : SafePay, All Right Reserved <br><br> <span style="color: #157F87;">Term & Condition</span> &nbsp;|&nbsp; <span style="color: #157F87;">Privacy & Policy</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-    with col_right:
-        st.markdown("""
-        <div class="login-right-panel">
-            <div class="mock-card" style="transform: rotate(-2deg); margin-left: -10%;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-weight: 600; font-size: 14px;">Financial Plan</div>
-                    <div style="font-size: 11px; color: #64748B;">This Month ⌄</div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 20px;">
-                    <div style="width: 50px; height: 50px; border-radius: 50%; border: 6px solid #D4AF37; border-left-color: #157F87; border-bottom-color: #157F87;"></div>
-                    <div>
-                        <div style="font-size: 20px; font-weight: bold;">$2,005.45</div>
-                        <div style="font-size: 12px; color: #64748B;">Available</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mock-card" style="transform: rotate(2deg); margin-right: -10%; margin-top: -30px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div style="font-weight: 600; font-size: 14px;">Future Funds</div>
-                </div>
-                <div style="font-weight: bold; font-size: 16px;">Bucket List Trip</div>
-                <div style="font-size: 12px; color: #64748B; margin-bottom: 8px;">Due date - Apr 09, 2026</div>
-                <div style="font-weight: bold; font-size: 18px; color: #157F87;">$1900 <span style="font-size: 12px; color: #94A3B8; font-weight: normal;">/ $5,000</span></div>
-            </div>
-            
-            <div style="width: 64px; height: 64px; background-color: #157F87; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 24px; margin-top: 24px; z-index: 1;">
-                🏦
-            </div>
-            <h2>A Unified Hub for Smarter<br>Financial Decision-Making</h2>
-            <p>SafePay empowers you with a unified financial command center—delivering deep insights and a 360° view of your entire economic world.</p>
-            
-            <div style="display: flex; gap: 8px; margin-top: 32px; margin-bottom: 16px; z-index: 1;">
-                <div style="width: 32px; height: 4px; background: white; border-radius: 2px;"></div>
-                <div style="width: 32px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
-                <div style="width: 32px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # ENGINE WRAPPER
@@ -726,6 +373,7 @@ def run_deterministic_engine_cached(req_dict, prof_dict, events_json, opts_json,
 # ---------------------------------------------------------
 # MAIN APP - SINGLE PAGE
 # ---------------------------------------------------------
+
 def main_dashboard():
     uuid_val = st.session_state.get('authenticated_uuid')
     dataset_user_id = st.session_state.get('dataset_user_id')
@@ -737,70 +385,48 @@ def main_dashboard():
     inject_main_css()
     security_context = SecurityContext(uuid_val, dataset_user_id)
     
-    # ---------------------------------------------------------
-    # TOP BAR - SINGLE HORIZONTAL ROW
-    # ---------------------------------------------------------
-    st.markdown('<div class="top-bar-wrapper">', unsafe_allow_html=True)
-    tb1, tb2, tb3 = st.columns([2.5, 5, 4.5], vertical_alignment="center")
-    
+    # ------------------- SIDEBAR -------------------
+    with st.sidebar:
+        st.markdown('<div class="sidebar-logo"><div style="background:#157F87; color:white; width:36px; height:36px; display:flex; justify-content:center; align-items:center; border-radius:10px;">F</div> SafePay</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item active">⊞ Dashboard</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item">⇆ Transactions</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item">💼 Wallet</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item">🎯 Goals</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item">💰 Budget</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item">📈 Analytics</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item">⚙️ Settings</div>', unsafe_allow_html=True)
+        
+        st.markdown('<br><br><br>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-menu-item">❓ Help</div>', unsafe_allow_html=True)
+        if st.button("🚪 Log out", use_container_width=True, type="secondary"):
+            st.session_state.clear()
+            st.rerun()
+            
+    # ------------------- TOP BAR -------------------
+    tb1, tb2 = st.columns([3, 1], vertical_alignment="center")
     with tb1:
-        st.markdown("<h1 style='margin:0; padding:0; display:flex; align-items:center;'><span style='margin-right:8px;'>🏦</span> SafePay</h1>", unsafe_allow_html=True)
-        
+        st.markdown(f'<h1 style="font-size: 34px !important; font-weight: 800; margin-bottom: 4px !important;">Welcome back, {dataset_user_id}!</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #A3AED0; margin-top: 0; font-size:15px;">It is the best time to manage your finances</p>', unsafe_allow_html=True)
     with tb2:
-        st.text_input("Search", placeholder="Search transactions, requests...", label_visibility="collapsed")
-        
-    with tb3:
-        # Shared Container for Theme + Profile
-        p1, p2, p3 = st.columns([1.5, 0.2, 3], vertical_alignment="center")
-        with p1:
-            theme_choice = st.selectbox("Theme", ["Light", "Dark"], index=0 if st.session_state.get('theme', 'light') == 'light' else 1, label_visibility="collapsed")
-            if theme_choice.lower() != st.session_state.get('theme', 'light'):
-                st.session_state['theme'] = theme_choice.lower()
-                st.rerun()
-        with p2:
-            st.markdown("<div style='border-left: 1px solid #94A3B8; height: 28px; margin: auto;'></div>", unsafe_allow_html=True)
-        with p3:
-            with st.popover(f"👤 {dataset_user_id} - Auth'd", use_container_width=True):
-                st.markdown(f"**Authenticated as {dataset_user_id}**")
-                st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
-                
-                is_demo_mode = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
-                if is_demo_mode:
-                    new_user = st.text_input("Switch User", placeholder="e.g. user_32")
-                    if st.button("Switch Session", use_container_width=True):
-                        if new_user:
-                            new_uuid = authenticate(new_user, os.environ.get("SAFEPAY_DEMO_PASSWORD", "password123"))
-                            if new_uuid:
-                                st.session_state['authenticated_uuid'] = new_uuid
-                                st.session_state['dataset_user_id'] = new_user
-                                st.rerun()
-                            else:
-                                st.error("Failed to switch")
-                    st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
-                    
-                if st.button("Logout", use_container_width=True):
-                    st.session_state.clear()
-                    st.rerun()
-                    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # ---------------------------------------------------------
-    # MAIN CONTENT
-    # ---------------------------------------------------------
+        # Profile mock
+        st.markdown(f'<div style="display:flex; justify-content:flex-end; align-items:center; gap:16px;">'
+                    f'<div style="width: 44px; height: 44px; border-radius: 50%; background: #157F87; color: white; display:flex; justify-content:center; align-items:center; font-weight:bold; font-size:18px;">{dataset_user_id[:2].upper()}</div>'
+                    f'<div style="font-weight:700; font-size:15px; color:#2B3674;">{dataset_user_id}<br><span style="color:#A3AED0; font-size:12px; font-weight:500;">Authenticated</span></div></div>', unsafe_allow_html=True)
+
+    # ------------------- MAIN CONTENT -------------------
     user_requests = loader.get_user_requests(security_context)
     if not user_requests:
-        st.markdown("""
-        <div style="text-align: center; padding: 100px 20px;">
-            <h2 style="margin-bottom: 8px;">No financial requests yet</h2>
-            <p style="font-size: 16px; max-width: 500px; margin: 0 auto;">Once a purchase request is available, SafePay will analyze whether you can safely afford it.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("No financial requests yet.")
         return
 
-    # Request Selector
-    st.markdown("**Active Request Context**")
-    selected_request = st.selectbox("Active Request Context", user_requests, label_visibility="collapsed")
-    
+    # Action Bar
+    st.markdown('<br>', unsafe_allow_html=True)
+    ab1, ab2, ab3 = st.columns([2, 2, 1], vertical_alignment="center")
+    with ab1:
+        selected_request = st.selectbox("Active Request", user_requests, label_visibility="collapsed")
+    with ab3:
+        st.button("+ Add new request", type="primary", use_container_width=True)
+        
     try:
         req_row, prof_row, events_df, opts_df, messages_df, images_df, rates_df = loader.get_request_context(selected_request, security_context)
         
@@ -818,156 +444,151 @@ def main_dashboard():
         bal = float(prof_row['current_available_balance'])
         min_bal = float(prof_row['minimum_balance_to_keep'])
         buffer = max(0.0, bal - min_bal)
+        safe_to_pay = float(decision.get('amount_safe_to_pay', 0.0))
         
-        # --- SECTION A: Top Summary Strip ---
-        st.markdown('<div class="section-header">Financial Summary</div>', unsafe_allow_html=True)
-        met1, met2, met3 = st.columns(3)
-        with met1:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-label">Current Balance</div>
-                <div class="metric-value">{currency} {bal:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with met2:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-label">Minimum Required</div>
-                <div class="metric-value">{currency} {min_bal:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with met3:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-label">Available Buffer</div>
-                <div class="metric-value" style="color: {'#10B981' if buffer > 0 else '#EF4444'};">{currency} {buffer:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # --- SECTION B: Decision Result + Reasoning ---
-        st.markdown('<div class="section-header">Decision & Reasoning</div>', unsafe_allow_html=True)
-        
-        # Dynamic Left Border Color Logic
-        if decision['affordability_status'] == "affordable_now":
-            color_theme = "#10B981" # Green
-            status_text = "AFFORDABLE NOW"
-        elif decision['affordability_status'] in ["affordable_with_plan", "affordable_later"]:
-            color_theme = "#F59E0B" # Amber
-            status_text = "AFFORDABLE WITH PLAN" if decision['affordability_status'] == "affordable_with_plan" else "WAIT"
-        else:
-            color_theme = "#EF4444" # Red
-            status_text = "NOT AFFORDABLE"
-            
-        st.markdown(f"""
-        <div class="safepay-card" style="border-left: 6px solid {color_theme};">
-            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 24px;">
-                <div style="flex: 1; min-width: 250px;">
-                    <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Recommendation</div>
-                    <div style="font-size: 28px; font-weight: 800; color: {color_theme}; margin-bottom: 12px; line-height: 1.2;">{status_text}</div>
-                    <div style="margin-bottom: 8px;"><strong style="color: #64748B;">Method:</strong> {decision['recommended_payment_method'].replace('_', ' ').title()}</div>
-                    <div><strong style="color: #64748B;">Safe to Pay:</strong> {currency} {decision['amount_safe_to_pay']}</div>
-                </div>
-                <div style="flex: 1.5; min-width: 300px; padding-left: 24px; border-left: 1px solid #E2E8F0;">
-                    <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Reasoning</div>
-                    <div style="font-size: 15px; line-height: 1.6;">{decision['decision_explanation']}</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # --- SECTION C: 90-Day Forecast Chart ---
-        st.markdown('<div class="section-header">90-Day Forecast</div>', unsafe_allow_html=True)
-        with st.container(border=True):
-            if history:
-                df_hist = pd.DataFrame(history)
-                fig_hist = go.Figure()
-                fig_hist.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Projected Balance', line=dict(color="#3B82F6", width=3)))
-                fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="#EF4444", annotation_text="Minimum Allowed Balance", annotation_position="bottom right", annotation_font_color="#7F1D1D")
+        # 4 Metric Cards
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            with st.container(border=True):
+                st.markdown('<div class="fs-metric-label">Total balance <span class="icon">↗</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="fs-metric-value">{currency} {bal:,.2f}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="fs-metric-pill fs-pill-green">↑ Active</div> <span style="font-size:12px; color:#A3AED0; margin-left:8px;">vs minimum</span>', unsafe_allow_html=True)
+        with m2:
+            with st.container(border=True):
+                st.markdown('<div class="fs-metric-label">Safe to Pay <span class="icon">↗</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="fs-metric-value">{currency} {safe_to_pay:,.2f}</div>', unsafe_allow_html=True)
+                status_color = "fs-pill-green" if safe_to_pay > 0 else "fs-pill-red"
+                st.markdown(f'<div class="fs-metric-pill {status_color}">{"↑ Approved" if safe_to_pay > 0 else "↓ Restricted"}</div> <span style="font-size:12px; color:#A3AED0; margin-left:8px;">for request</span>', unsafe_allow_html=True)
+        with m3:
+            with st.container(border=True):
+                st.markdown('<div class="fs-metric-label">Minimum Required <span class="icon">↗</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="fs-metric-value">{currency} {min_bal:,.2f}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="fs-metric-pill fs-pill-neutral">→ Baseline</div> <span style="font-size:12px; color:#A3AED0; margin-left:8px;">fixed target</span>', unsafe_allow_html=True)
+        with m4:
+            with st.container(border=True):
+                st.markdown('<div class="fs-metric-label">Available Buffer <span class="icon">↗</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="fs-metric-value">{currency} {buffer:,.2f}</div>', unsafe_allow_html=True)
+                buffer_color = "fs-pill-green" if buffer > 0 else "fs-pill-red"
+                st.markdown(f'<div class="fs-metric-pill {buffer_color}">{"↑ Safe" if buffer > 0 else "↓ Critical"}</div> <span style="font-size:12px; color:#A3AED0; margin-left:8px;">remaining cash</span>', unsafe_allow_html=True)
                 
-                # Darker labels for contrast
-                theme_str = st.session_state.get('theme', 'light')
-                ax_color = "#1E293B" if theme_str == 'light' else "#E2E8F0"
+        # Middle Layout: Chart + Decision Input
+        mid1, mid2 = st.columns([1.8, 1.2])
+        with mid1:
+            with st.container(border=True):
+                st.markdown('<div style="display:flex; justify-content:space-between; margin-bottom: 16px;"><h4>Money flow</h4></div>', unsafe_allow_html=True)
+                if history:
+                    df_hist = pd.DataFrame(history)
+                    fig_hist = go.Figure()
+                    # Finset style: Bar charts for income/expense, but we have balance line. Let's make it a beautiful filled area chart
+                    fig_hist.add_trace(go.Scatter(
+                        x=df_hist['date'], y=df_hist['balance'], mode='lines', 
+                        name='Projected Balance', 
+                        line=dict(color="#157F87", width=4),
+                        fill='tozeroy', fillcolor="rgba(21, 127, 135, 0.15)"
+                    ))
+                    fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="#EE5D50")
+                    
+                    fig_hist.update_layout(
+                        height=280, margin=dict(l=0, r=0, t=10, b=0),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(showgrid=False, tickfont=dict(color="#A3AED0")), 
+                        yaxis=dict(showgrid=True, gridcolor="#F4F7FE", tickfont=dict(color="#A3AED0"))
+                    )
+                    st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
+                    
+        with mid2:
+            with st.container(border=True):
+                st.markdown('<h4>Purchase Request Analysis</h4>', unsafe_allow_html=True)
                 
-                fig_hist.update_layout(
-                    height=350, 
-                    margin=dict(l=0, r=0, t=10, b=0),
-                    paper_bgcolor="rgba(0,0,0,0)", 
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    xaxis=dict(tickfont=dict(color=ax_color, size=12)),
-                    yaxis=dict(tickfont=dict(color=ax_color, size=12))
-                )
-                st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("No forecast history available.")
-            
-        # --- SECTION D: Verification Proof + Timestamp ---
-        st.markdown('<div class="section-header">Verification Proof</div>', unsafe_allow_html=True)
-        
-        if is_verified:
-            v_color = "#10B981"
-            v_text = "PASS"
-            v_icon = "✓"
-            v_detail = "The financial recommendation successfully passed all deterministic backend verification checks. Projected balance never breaches the minimum."
-        else:
-            v_color = "#EF4444"
-            v_text = "FAIL"
-            v_icon = "✗"
-            v_detail = "The backend verifier caught a safety condition and forced a rollback. Recommending 'Wait'."
-            
-        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        st.markdown(f"""
-        <div class="safepay-card">
-            <div style="display: flex; align-items: flex-start; gap: 16px;">
-                <div style="background: {v_color}; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px;">{v_icon} {v_text}</div>
-                <div>
-                    <div style="font-weight: 600; margin-bottom: 4px;">Deterministic Checks Executed</div>
-                    <div style="font-size: 14px; color: #64748B; margin-bottom: 8px;">{v_detail}</div>
-                    <div style="font-size: 12px; color: #94A3B8;">Verified at: {now_str}</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # --- SECTION E: User History ---
-        st.markdown('<div class="section-header">User History</div>', unsafe_allow_html=True)
-        with st.container(border=True):
-            if not events_df.empty:
-                display_df = events_df[['event_date', 'direction', 'amount', 'currency', 'category', 'description']].sort_values('event_date', ascending=False)
-                st.dataframe(display_df, use_container_width=True, height=250)
-            else:
-                st.info("No prior history found for this user.")
-        
-        # --- SECTION F: Notes Input ---
-        st.markdown('<div class="section-header">Analyst Notes</div>', unsafe_allow_html=True)
-        with st.container(border=True):
-            user_notes = st.text_area("Add extra detail about this request:", placeholder="Enter any specific contextual notes here...", label_visibility="collapsed")
-            if st.button("💾 Save Note", type="primary"):
-                st.success("✓ Note saved to session.")
-        
-        # --- DOWNLOAD BUTTONS ---
-        st.markdown('<div class="section-header">Export Report</div>', unsafe_allow_html=True)
-        
-        # Fixed overflow by using 2 equal-width columns for export buttons
-        dl_col1, dl_col2 = st.columns(2)
-        with dl_col1:
-            try:
-                pdf_data = generate_pdf(decision, selected_request)
-                st.download_button("📄 Download PDF", data=pdf_data, file_name=f"{selected_request}_report.pdf", mime="application/pdf", use_container_width=True)
-            except Exception as e:
-                st.error("PDF generation failed.")
+                # Ask user to reason why buy
+                st.markdown('<span style="font-size:14px; font-weight:600; color:#2B3674;">Why do you need to make this purchase?</span>', unsafe_allow_html=True)
+                user_reason = st.text_area("Reason", value=req_row['request_text'], height=68, label_visibility="collapsed")
                 
-        with dl_col2:
-            try:
-                docx_data = generate_docx(decision, selected_request)
-                st.download_button("📝 Download DOCX", data=docx_data, file_name=f"{selected_request}_report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
-            except Exception as e:
-                st.error("DOCX generation failed.")
+                # In output format give answer with reason why wait or buy
+                if st.button("Evaluate Request", type="primary", use_container_width=True):
+                    st.success("Decision Processed.")
+                    
+                st.markdown('<hr style="margin: 16px 0; border-color: #F4F7FE;">', unsafe_allow_html=True)
+                status = decision['affordability_status']
+                rec_method = decision['recommended_payment_method'].replace('_', ' ').title()
+                status_clr = "#05CD99" if "affordable" in status else "#EE5D50"
                 
-    except PermissionError:
-        st.error("Access denied. Resource ownership violation.")
-    except Exception as e:
-        st.error(f"SafePay could not complete this analysis safely. Error: {e}")
+                st.markdown(f'<strong style="color: #A3AED0; font-size:12px; text-transform:uppercase;">Recommendation</strong><br>'
+                            f'<div style="font-size:20px; font-weight:800; color: {status_clr}; margin-bottom:8px;">{rec_method}</div>', unsafe_allow_html=True)
+                
+                st.markdown(f'<strong style="color: #A3AED0; font-size:12px; text-transform:uppercase;">Reasoning</strong><br>'
+                            f'<div style="font-size: 14px; color: #2B3674; font-weight:500; line-height:1.5;">{decision["decision_explanation"]}</div>', unsafe_allow_html=True)
+                
+                # Payment breakdown if applicable
+                pp = decision.get('payment_plan', 'none')
+                if pp != 'none' and pp:
+                    parts = pp.split('|')
+                    num_parts = len(parts)
+                    start_date = parts[0].split(':')[0]
+                    end_date = parts[-1].split(':')[0]
+                    st.markdown(f'<div style="background: #F4F7FE; padding: 16px; border-radius: 12px; margin-top:16px;">'
+                                f'<strong style="color: #2B3674; font-size:14px;">Payment Schedule</strong><br>'
+                                f'<div style="font-size: 13px; color: #A3AED0; font-weight:600; margin-top:4px;">'
+                                f'<span style="color:#157F87;">• Total parts:</span> {num_parts}<br>'
+                                f'<span style="color:#157F87;">• Starts on:</span> {start_date}<br>'
+                                f'<span style="color:#157F87;">• Completes on:</span> {end_date}'
+                                f'</div></div>', unsafe_allow_html=True)
 
-if __name__ == "__main__":
-    main_dashboard()
+        # Bottom Layout: Recent Transactions + Saving Goals
+        bot1, bot2 = st.columns([1.8, 1.2])
+        with bot1:
+            with st.container(border=True):
+                st.markdown('<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;"><h4>Recent transactions</h4><div style="color:#A3AED0; font-weight:600; font-size:14px;">See all ></div></div>', unsafe_allow_html=True)
+                if not events_df.empty:
+                    display_df = events_df[['event_date', 'direction', 'amount', 'category', 'description']].sort_values('event_date', ascending=False).head(4)
+                    
+                    # Manual HTML table for custom FinSet look
+                    html_table = '<table style="width:100%; text-align:left; border-collapse: collapse;">'
+                    html_table += '<tr style="color:#A3AED0; font-size:12px; text-transform:uppercase; border-bottom: 1px solid #F4F7FE;"><th style="padding:12px 8px;">Date</th><th style="padding:12px 8px;">Amount</th><th style="padding:12px 8px;">Name</th><th style="padding:12px 8px;">Category</th></tr>'
+                    
+                    for _, row in display_df.iterrows():
+                        amt_color = "#EE5D50" if row['direction'] == 'debit' else "#05CD99"
+                        amt_sign = "-" if row['direction'] == 'debit' else "+"
+                        html_table += f'<tr style="font-weight:600; font-size:14px; border-bottom: 1px solid #F4F7FE;">'
+                        html_table += f'<td style="padding:16px 8px; color:#A3AED0;">{row["event_date"]}</td>'
+                        html_table += f'<td style="padding:16px 8px; color:{amt_color};">{amt_sign}{currency} {row["amount"]}</td>'
+                        html_table += f'<td style="padding:16px 8px; color:#2B3674;">{row["description"]}</td>'
+                        html_table += f'<td style="padding:16px 8px; color:#A3AED0;">{row["category"]}</td>'
+                        html_table += '</tr>'
+                    html_table += '</table>'
+                    st.markdown(html_table, unsafe_allow_html=True)
+        with bot2:
+            with st.container(border=True):
+                st.markdown('<h4>Verification Goals</h4>', unsafe_allow_html=True)
+                is_v = decision.get('is_verified', False)
+                v_clr = "#157F87" if is_v else "#EE5D50"
+                v_txt = "System Verified" if is_v else "Validation Failed"
+                pct = "100%" if is_v else "15%"
+                
+                st.markdown(f'''
+                <div style="margin-bottom: 24px; margin-top: 16px;">
+                    <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; color:#2B3674; margin-bottom:8px;">
+                        <span>Backend Confidence</span> <span>{pct}</span>
+                    </div>
+                    <div style="background: #F4F7FE; border-radius: 12px; height: 12px; width: 100%; overflow: hidden;">
+                        <div style="background: {v_clr}; height: 100%; width: {pct}; border-radius: 12px;"></div>
+                    </div>
+                    <div style="font-size:13px; color:#A3AED0; font-weight:600; margin-top:8px;">{v_txt}</div>
+                </div>
+                ''', unsafe_allow_html=True)
+                
+                # Add exports
+                st.markdown('<hr style="margin: 24px 0; border-color: #F4F7FE;">', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:14px; font-weight:700; color:#2B3674; margin-bottom:12px;">Export Analysis Report</div>', unsafe_allow_html=True)
+                dl_c1, dl_c2 = st.columns(2)
+                with dl_c1:
+                    pdf_data = generate_pdf(decision, selected_request)
+                    st.download_button("📄 PDF", data=pdf_data, file_name=f"{selected_request}.pdf", mime="application/pdf", use_container_width=True)
+                with dl_c2:
+                    docx_data = generate_docx(decision, selected_request)
+                    st.download_button("📝 DOCX", data=docx_data, file_name=f"{selected_request}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
+    except PermissionError:
+        st.error("Access denied.")
+    except Exception as e:
+        st.error(f"Error: {e}")
