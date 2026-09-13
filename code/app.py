@@ -112,24 +112,28 @@ def run_deterministic_engine(req_row, prof_row, events_df, opts_df, messages_df,
     return output_row, is_verified
 
 def main_dashboard():
-    uuid = st.session_state.get('authenticated_uuid')
-    dataset_user_id = st.session_state.get('dataset_user_id')
+    st.sidebar.markdown("### Testing Mode")
+    st.sidebar.info("Login has been temporarily disabled for testing.")
     
-    if not uuid:
-        login_ui()
+    # Get all unique users from requests
+    df_req = data_loader.data.get('requests', pd.DataFrame())
+    if not df_req.empty:
+        all_users = sorted(df_req['user_id'].unique())
+    else:
+        all_users = []
+        
+    if not all_users:
+        st.warning("No users found in dataset.")
         return
         
-    security_context = SecurityContext(uuid, dataset_user_id)
+    dataset_user_id = st.sidebar.selectbox("Select User ID (Simulate Login)", all_users)
     
-    with st.sidebar:
-        st.markdown(f"**Authenticated as:** `{dataset_user_id}`")
-        if st.button("Logout"):
-            st.session_state.clear()
-            st.rerun()
-            
+    # Bypass Security Context by spoofing the selected user
+    security_context = SecurityContext("test_uuid", dataset_user_id)
+    
     user_requests = data_loader.get_user_requests(security_context)
     if not user_requests:
-        st.info("No financial requests are currently linked to this account.")
+        st.info(f"No financial requests are currently linked to {dataset_user_id}.")
         return
         
     selected_request = st.selectbox("Select a Financial Request", user_requests)
