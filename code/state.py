@@ -68,12 +68,24 @@ class FinancialStateLayer:
             if e.status in ['scheduled', 'pending']:
                 explicit_future.append(e)
                 
-        # Merge logic to avoid double-counting if a future event perfectly matches a forecasted recurring event
-        # (For simplicity, if an explicit future event exists in the same category, we don't necessarily override,
-        # but the problem says "Next confirmed salary" replaces basic forecasting).
+        # Merge logic to avoid double-counting
+        # If an explicit future event exists for a recurring description, we remove that specific forecast for the next cycle,
+        # or we just let the explicit event replace the forecast.
+        filtered_recurring_incomes = []
+        for inc in recurring_incomes:
+            # Check if there is an explicit future event matching this description
+            has_explicit = any(e.description == inc['description'] for e in explicit_future)
+            if not has_explicit:
+                filtered_recurring_incomes.append(inc)
+                
+        filtered_recurring_expenses = []
+        for exp in recurring_expenses:
+            has_explicit = any(e.description == exp['description'] for e in explicit_future)
+            if not has_explicit:
+                filtered_recurring_expenses.append(exp)
         
         return {
-            "recurring_expenses": recurring_expenses,
-            "recurring_incomes": recurring_incomes,
+            "recurring_expenses": filtered_recurring_expenses,
+            "recurring_incomes": filtered_recurring_incomes,
             "explicit_future_events": explicit_future
         }
