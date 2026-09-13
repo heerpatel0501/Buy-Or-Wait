@@ -382,26 +382,28 @@ def main_dashboard():
             st.rerun()
 
     # Determine Active Nav
-    active_nav = st.session_state.get('active_nav', "Dashboard")
-    
-    # Listen to radio button changes (hacky but works)
+    active_nav = "Dashboard"
     if 'nav1' in st.session_state and st.session_state.nav1 != "Dashboard":
         active_nav = st.session_state.nav1
     if 'nav2' in st.session_state and st.session_state.nav2 != "Forecast & Simulation":
         active_nav = st.session_state.nav2
         
-    # Header
-    st.markdown("""
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #E2E8F0; padding-bottom: 16px;">
-            <div style="display: flex; align-items: center;">
-                <h2 style="margin: 0; font-size: 24px !important;">Home</h2>
-                <div class="top-badge">SafePay Affordability Engine Active</div>
+    # Professional Header Toolbar with Search
+    col_title, col_search, col_icons = st.columns([1, 2, 1])
+    with col_title:
+        st.markdown(f"<h2 style='margin: 0; font-size: 24px !important;'>{active_nav}</h2>", unsafe_allow_html=True)
+    with col_search:
+        st.text_input("Search", placeholder="Search transactions, requests, or evidence...", label_visibility="collapsed")
+    with col_icons:
+        st.markdown(f"""
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; color: #A0ABC0; font-size: 18px; margin-top: 4px;">
+                <span title="Notifications">🔔</span> 
+                <span title="Settings">⚙️</span> 
+                <span style="background: #93AD80; color: white; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; justify-content: center; align-items: center; font-size: 12px;" title="User Profile">{(dataset_user_id or "U")[:2].upper()}</span>
             </div>
-            <div style="display: flex; gap: 12px; color: #A0ABC0; font-size: 18px;">
-                <span>📈</span> <span>🔔</span> <span>⚙️</span> <span style="background: #93AD80; color: white; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; justify-content: center; align-items: center; font-size: 12px;">US</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        
+    st.markdown("<hr style='margin-top: 16px; margin-bottom: 24px; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
     
     user_requests = loader.get_user_requests(security_context)
     
@@ -417,7 +419,6 @@ def main_dashboard():
         """, unsafe_allow_html=True)
         return
 
-    # Let user select a request context
     st.markdown("<div style='margin-bottom: 16px;'>", unsafe_allow_html=True)
     selected_request = st.selectbox("Active Request Context", user_requests)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -435,126 +436,183 @@ def main_dashboard():
             
         currency = prof_row['home_currency']
         
-        # Calculate Income, Expenses, Net
-        income_sum = pd.to_numeric(events_df[events_df['direction'] == 'credit']['amount']).sum()
-        expense_sum = pd.to_numeric(events_df[events_df['direction'] == 'debit']['amount']).sum()
-        net_saved = max(0, income_sum - expense_sum)
-        max_gauge = max(income_sum, expense_sum) * 1.5 if max(income_sum, expense_sum) > 0 else 1000
-        
-        st.markdown('<div class="section-header"><span>🕒</span> THE PRESENT</div>', unsafe_allow_html=True)
-        
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.plotly_chart(create_gauge("INCOME", float(income_sum), float(max_gauge), "#EAA53B"), use_container_width=True)
-            st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(income_sum):,.0f}</span></div>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+        # Route depending on active tab
+        if active_nav == "Dashboard":
+            # Calculate Income, Expenses, Net
+            income_sum = pd.to_numeric(events_df[events_df['direction'] == 'credit']['amount']).sum()
+            expense_sum = pd.to_numeric(events_df[events_df['direction'] == 'debit']['amount']).sum()
+            net_saved = max(0, income_sum - expense_sum)
+            max_gauge = max(income_sum, expense_sum) * 1.5 if max(income_sum, expense_sum) > 0 else 1000
             
-        with c2:
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.plotly_chart(create_gauge("EXPENSES", float(expense_sum), float(max_gauge), "#93AD80"), use_container_width=True)
-            st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(expense_sum):,.0f}</span></div>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-header"><span>🕒</span> THE PRESENT</div>', unsafe_allow_html=True)
             
-        with c3:
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.plotly_chart(create_gauge("NET (SAVED)", float(net_saved), float(max_gauge), "#EAA53B"), use_container_width=True)
-            st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(net_saved):,.0f}</span></div>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+                st.plotly_chart(create_gauge("INCOME", float(income_sum), float(max_gauge), "#EAA53B"), use_container_width=True)
+                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(income_sum):,.0f}</span></div>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            with c2:
+                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+                st.plotly_chart(create_gauge("EXPENSES", float(expense_sum), float(max_gauge), "#93AD80"), use_container_width=True)
+                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(expense_sum):,.0f}</span></div>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            with c3:
+                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+                st.plotly_chart(create_gauge("NET (SAVED)", float(net_saved), float(max_gauge), "#EAA53B"), use_container_width=True)
+                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(net_saved):,.0f}</span></div>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            st.markdown("<p style='text-align: center; color: #A0ABC0; font-size: 12px; margin-bottom: 24px;'>The notch marks your budget; the dial fills to where you actually are.</p>", unsafe_allow_html=True)
             
-        st.markdown("<p style='text-align: center; color: #A0ABC0; font-size: 12px; margin-bottom: 24px;'>The notch marks your budget; the dial fills to where you actually are.</p>", unsafe_allow_html=True)
-        
-        # Second Row
-        c_left, c_right = st.columns([2, 1])
-        with c_left:
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.markdown('<div style="display: flex; justify-content: space-between;"><span style="font-weight: 700; color: #2A323D;">Spending over time</span><span style="color: #A0ABC0; font-size: 12px;">Hover a column to see the breakdown</span></div>', unsafe_allow_html=True)
+            # Second Row
+            c_left, c_right = st.columns([2, 1])
+            with c_left:
+                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+                st.markdown('<div style="display: flex; justify-content: space-between;"><span style="font-weight: 700; color: #2A323D;">Spending over time</span><span style="color: #A0ABC0; font-size: 12px;">Hover a column to see the breakdown</span></div>', unsafe_allow_html=True)
+                
+                dates = pd.to_datetime(events_df['event_date'])
+                events_df['month'] = dates.dt.strftime('%b')
+                monthly = events_df[events_df['direction'] == 'debit'].groupby('month')['amount'].sum().reindex(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']).fillna(0)
+                
+                fig2 = go.Figure(data=[
+                    go.Bar(name='Expenses', x=monthly.index, y=monthly.values, marker_color='#D9827C')
+                ])
+                fig2.update_layout(barmode='stack', height=250, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="white", plot_bgcolor="white")
+                st.plotly_chart(fig2, use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+            with c_right:
+                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+                st.markdown('<div style="display: flex; justify-content: space-between; margin-bottom: 24px;"><span style="font-weight: 700; color: #2A323D;">Liquid net worth</span><span style="color: #93AD80; font-size: 12px; font-weight: 600;">All assets →</span></div>', unsafe_allow_html=True)
+                
+                bal = float(prof_row['current_available_balance'])
+                min_bal = float(prof_row['minimum_balance_to_keep'])
+                
+                st.markdown(f"""
+                <div style="display: flex; justify-content: space-around; align-items: flex-end; height: 120px; margin-bottom: 24px;">
+                    <div style="text-align: center;">
+                        <div style="font-weight: 700; margin-bottom: 8px;">${bal:,.0f}</div>
+                        <div style="width: 40px; height: 100px; background-color: #849C73; margin: 0 auto; border-radius: 4px 4px 0 0;"></div>
+                        <div style="font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: 8px;">ASSETS</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-weight: 700; margin-bottom: 8px;">${min_bal:,.0f}</div>
+                        <div style="width: 40px; height: 30px; background-color: #D9827C; margin: 0 auto; border-radius: 4px 4px 0 0;"></div>
+                        <div style="font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: 8px;">MINIMUM</div>
+                    </div>
+                </div>
+                <div style="text-align: right; border-top: 1px solid #F1F5F9; padding-top: 12px;">
+                    <div style="font-size: 10px; color: #A0ABC0; font-weight: 700;">LIQUID NET WORTH</div>
+                    <div style="font-size: 24px; font-weight: 700; color: #2A323D;">${bal:,.0f}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('<div class="section-header"><span>🍃</span> THE FUTURE</div>', unsafe_allow_html=True)
             
-            # Create a simple stacked bar chart representing history
-            dates = pd.to_datetime(events_df['event_date'])
-            events_df['month'] = dates.dt.strftime('%b')
-            monthly = events_df[events_df['direction'] == 'debit'].groupby('month')['amount'].sum().reindex(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']).fillna(0)
-            
-            fig2 = go.Figure(data=[
-                go.Bar(name='Expenses', x=monthly.index, y=monthly.values, marker_color='#D9827C')
-            ])
-            fig2.update_layout(barmode='stack', height=250, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="white", plot_bgcolor="white")
-            st.plotly_chart(fig2, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        with c_right:
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.markdown('<div style="display: flex; justify-content: space-between; margin-bottom: 24px;"><span style="font-weight: 700; color: #2A323D;">Liquid net worth</span><span style="color: #93AD80; font-size: 12px; font-weight: 600;">All assets →</span></div>', unsafe_allow_html=True)
-            
-            bal = float(prof_row['current_available_balance'])
-            min_bal = float(prof_row['minimum_balance_to_keep'])
+            status_text = "AFFORDABLE" if decision['affordability_status'] in ["affordable_now", "affordable_with_plan"] else "NOT AFFORDABLE"
+            color_theme = "#EAA53B" if status_text == "AFFORDABLE" else "#D9827C"
             
             st.markdown(f"""
-            <div style="display: flex; justify-content: space-around; align-items: flex-end; height: 120px; margin-bottom: 24px;">
-                <div style="text-align: center;">
-                    <div style="font-weight: 700; margin-bottom: 8px;">${bal:,.0f}</div>
-                    <div style="width: 40px; height: 100px; background-color: #849C73; margin: 0 auto; border-radius: 4px 4px 0 0;"></div>
-                    <div style="font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: 8px;">ASSETS</div>
+            <div class="dark-card">
+                <div style="font-size: 12px; font-weight: 700; color: #A0ABC0; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">YOUR PLAN IS</div>
+                <div style="font-size: 42px; font-weight: 700; color: {color_theme}; margin-bottom: 16px;">{status_text.lower()}</div>
+                <p style="color: #A0ABC0; font-size: 16px; max-width: 600px; line-height: 1.5; margin-bottom: 24px;">
+                    {decision['decision_explanation']}
+                </p>
+                <div style="display: flex; gap: 16px;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 20px; font-size: 14px;">
+                        <span style="color: #A0ABC0;">Safe to pay: </span><span style="font-weight: 700;">{currency} {decision['amount_safe_to_pay']}</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 20px; font-size: 14px;">
+                        <span style="color: #A0ABC0;">Method: </span><span style="font-weight: 700;">{decision['recommended_payment_method'].replace('_', ' ').title()}</span>
+                    </div>
                 </div>
-                <div style="text-align: center;">
-                    <div style="font-weight: 700; margin-bottom: 8px;">${min_bal:,.0f}</div>
-                    <div style="width: 40px; height: 30px; background-color: #D9827C; margin: 0 auto; border-radius: 4px 4px 0 0;"></div>
-                    <div style="font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: 8px;">MINIMUM</div>
-                </div>
-            </div>
-            <div style="text-align: right; border-top: 1px solid #F1F5F9; padding-top: 12px;">
-                <div style="font-size: 10px; color: #A0ABC0; font-weight: 700;">LIQUID NET WORTH</div>
-                <div style="font-size: 24px; font-weight: 700; color: #2A323D;">${bal:,.0f}</div>
-            </div>
             """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('<div class="section-header"><span>🍃</span> THE FUTURE</div>', unsafe_allow_html=True)
-        
-        status_text = "AFFORDABLE" if decision['affordability_status'] in ["affordable_now", "affordable_with_plan"] else "NOT AFFORDABLE"
-        color_theme = "#EAA53B" if status_text == "AFFORDABLE" else "#D9827C"
-        
-        st.markdown(f"""
-        <div class="dark-card">
-            <div style="font-size: 12px; font-weight: 700; color: #A0ABC0; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">YOUR PLAN IS</div>
-            <div style="font-size: 42px; font-weight: 700; color: {color_theme}; margin-bottom: 16px;">{status_text.lower()}</div>
-            <p style="color: #A0ABC0; font-size: 16px; max-width: 600px; line-height: 1.5; margin-bottom: 24px;">
-                {decision['decision_explanation']}
-            </p>
-            <div style="display: flex; gap: 16px;">
-                <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 20px; font-size: 14px;">
-                    <span style="color: #A0ABC0;">Safe to pay: </span><span style="font-weight: 700;">{currency} {decision['amount_safe_to_pay']}</span>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 20px; font-size: 14px;">
-                    <span style="color: #A0ABC0;">Method: </span><span style="font-weight: 700;">{decision['recommended_payment_method'].replace('_', ' ').title()}</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        if history:
-            df_hist = pd.DataFrame(history)
-            fig3 = go.Figure()
-            fig3.add_trace(go.Scatter(
-                x=df_hist['date'], y=df_hist['balance'], mode='lines',
-                line=dict(color=color_theme, width=3), fill='tozeroy', fillcolor=f'rgba({234 if color_theme=="#EAA53B" else 217}, {165 if color_theme=="#EAA53B" else 130}, {59 if color_theme=="#EAA53B" else 124}, 0.1)', name='Projected Balance'
-            ))
-            fig3.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                height=200, margin=dict(l=0, r=0, t=10, b=0),
-                xaxis=dict(showgrid=False, showticklabels=True, color="#A0ABC0"),
-                yaxis=dict(showgrid=False, showticklabels=False)
-            )
-            st.plotly_chart(fig3, use_container_width=True)
             
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Extra tabs data if needed
-        if "User History" in str(active_nav):
-            st.markdown("### User History (Events)")
+            if history:
+                df_hist = pd.DataFrame(history)
+                fig3 = go.Figure()
+                fig3.add_trace(go.Scatter(
+                    x=df_hist['date'], y=df_hist['balance'], mode='lines',
+                    line=dict(color=color_theme, width=3), fill='tozeroy', fillcolor=f'rgba({234 if color_theme=="#EAA53B" else 217}, {165 if color_theme=="#EAA53B" else 130}, {59 if color_theme=="#EAA53B" else 124}, 0.1)', name='Projected Balance'
+                ))
+                fig3.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    height=200, margin=dict(l=0, r=0, t=10, b=0),
+                    xaxis=dict(showgrid=False, showticklabels=True, color="#A0ABC0"),
+                    yaxis=dict(showgrid=False, showticklabels=False)
+                )
+                st.plotly_chart(fig3, use_container_width=True)
+                
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        elif active_nav == "Purchase Requests":
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            st.markdown('<div class="card-title">All Purchase Requests</div>', unsafe_allow_html=True)
+            # Show a mock summary table for all requests for this user
+            all_req_data = []
+            for r_id in user_requests:
+                r_ctx, _, _, _, _, _, _ = loader.get_request_context(r_id, security_context)
+                all_req_data.append({
+                    "Request ID": r_id,
+                    "Type": r_ctx['request_type'].title(),
+                    "Amount": f"{currency} {r_ctx['requested_amount']}",
+                    "Desired Date": r_ctx['desired_completion_date'] or "None"
+                })
+            st.dataframe(pd.DataFrame(all_req_data), use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        elif active_nav == "User History":
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            st.markdown('<div class="card-title">Transaction History</div>', unsafe_allow_html=True)
             st.dataframe(events_df, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        elif active_nav == "Evidence":
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            st.markdown('<div class="card-title">Extracted Context & Evidence</div>', unsafe_allow_html=True)
+            if not messages_df.empty:
+                st.markdown("### Messages")
+                st.dataframe(messages_df, use_container_width=True)
+            else:
+                st.info("No message evidence associated with this user.")
+                
+            if not images_df.empty:
+                st.markdown("### Images")
+                st.dataframe(images_df, use_container_width=True)
+            else:
+                st.info("No image evidence associated with this user.")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        elif active_nav == "Forecast & Simulation":
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            st.markdown('<div class="card-title">90-Day Simulation Engine</div>', unsafe_allow_html=True)
+            if history:
+                df_hist = pd.DataFrame(history)
+                fig_sim = go.Figure()
+                fig_sim.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Balance'))
+                fig_sim.update_layout(title="Projected Balance Timeline", paper_bgcolor="white", plot_bgcolor="white")
+                st.plotly_chart(fig_sim, use_container_width=True)
+                st.dataframe(df_hist, use_container_width=True)
+            else:
+                st.info("No simulation history available.")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        elif active_nav == "Verification":
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            st.markdown('<div class="card-title">Independent Verification Status</div>', unsafe_allow_html=True)
+            if is_verified:
+                st.success("✅ The financial recommendation successfully passed all deterministic backend verification checks.")
+            else:
+                st.error("❌ The backend verifier caught a safety condition and rolled back to a safe baseline.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
     except PermissionError:
         st.error("Access denied. Resource ownership violation.")
