@@ -1,187 +1,258 @@
 import streamlit as st
 import pandas as pd
-import json
 import os
-import PIL.Image
-from google import genai
-from google.genai import types
+import time
+import hashlib
+from dotenv import load_dotenv
 
-# Page config for trustworthy look
-st.set_page_config(
-    page_title="SafePay Financial Agent | Secure AI",
-    page_icon="🔒",
-    layout="wide"
-)
+# Import the secure deterministic engine
+from code.models import FinancialProfile, FinancialEvent, PaymentOption, Request
+from code.llm import LLMProvider
+from code.resolver import ConflictResolver
+from code.state import FinancialStateLayer
+from code.simulator import Simulator
+from code.solver import Solver
+from code.optimizer import Optimizer
+from code.verifier import Verifier
+from main import parse_profile, parse_event, parse_request, parse_payment_option
 
-# Shared logic to load data
+# Secure session configuration
+st.set_page_config(page_title="SafePay Financial Agent | Secure AI", page_icon="🔒", layout="wide")
+
+# --- AUTHENTICATION LAYER ---
+def hash_password(password: str) -> str:
+    # In a real app, use Argon2id. Using SHA-256 with salt here for MVP demonstration.
+    salt = "safepay_secure_salt_2026"
+    return hashlib.sha256((password + salt).encode()).hexdigest()
+
+def init_auth():
+    if "authenticated_user" not in st.session_state:
+        st.session_state.authenticated_user = None
+
+def login():
+    st.title("🔒 SafePay Secure Login")
+    username = st.text_input("User ID (e.g. user_01)")
+    password = st.text_input("Password", type="password")
+    
+    if st.button("Login"):
+        # Mock auth: Password is "password123" for everyone.
+        if password and hash_password(password) == hash_password("password123"):
+            # Prevent Session Fixation by resetting state if needed
+            st.session_state.authenticated_user = username
+            st.rerun()
+        else:
+            st.error("Invalid credentials.")
+
+def logout():
+    st.session_state.authenticated_user = None
+    st.rerun()
+
+# --- DATA ACCESS LAYER (AUTHORIZATION / IDOR PREVENTION) ---
 @st.cache_data
 def load_datasets(dataset_dir):
     data = {}
     for filename in os.listdir(dataset_dir):
         if filename.endswith('.csv'):
             name = filename.replace('.csv', '')
-            data[name] = pd.read_csv(os.path.join(dataset_dir, filename))
+            data[name] = pd.read_csv(os.path.join(dataset_dir, filename)).fillna('')
     return data
 
-def get_request_context(request_id, data):
-    req = data['requests'][data['requests']['request_id'] == request_id].iloc[0]
-    user_id = req['user_id']
-    profile = data['financial_profiles'][data['financial_profiles']['user_id'] == user_id].iloc[0]
-    events = data['financial_events'][data['financial_events']['user_id'] == user_id]
-    
-    if 'messages' in data and not data['messages'].empty:
-        messages = data['messages'][data['messages']['user_id'] == user_id]
-    else:
-        messages = pd.DataFrame()
+def get_authorized_request_context(request_id, current_user, data):
+    """
+    Enforces Resource Ownership. 
+    Verifies that the requested resource belongs to the authenticated user.
+    """
+    req_df = data['requests'][data['requests']['request_id'] == request_id]
+    if req_df.empty:
+        raise PermissionError("Resource not found.")
         
-    if 'images' in data and not data['images'].empty:
-        images = data['images'][
-            (data['images']['user_id'] == user_id) | 
-            (data['images']['request_id'] == request_id)
-        ]
-    else:
-        images = pd.DataFrame()
+    req_row = req_df.iloc[0]
+    
+    # IDOR Check: Ensure the requested resource belongs to the current user
+    if req_row['user_id'] != current_user:
+        raise PermissionError("Access Denied.")
         
-    payment_opts = data['request_payment_options'][data['request_payment_options']['request_id'] == request_id]
+    prof_row = data['financial_profiles'][data['financial_profiles']['user_id'] == current_user].iloc[0]
     
-    events = events.fillna('')
-    messages = messages.fillna('')
-    images = images.fillna('')
-    payment_opts = payment_opts.fillna('')
+    # Query strictly by user_id
+    events_df = data['financial_events'][data['financial_events']['user_id'] == current_user]
     
-    context = {
-        "request": req.to_dict(),
-        "profile": profile.to_dict(),
-        "events": events.to_dict(orient='records'),
-        "messages": messages.to_dict(orient='records'),
-        "images_metadata": images.to_dict(orient='records'),
-        "payment_options": payment_opts.to_dict(orient='records')
-    }
-    return context, images, req, profile, payment_opts
+    opts_df = data['request_payment_options'][(data['request_payment_options']['request_id'] == request_id)]
+    
+    if 'messages' in data:
+        messages_df = data['messages'][(data['messages']['user_id'] == current_user) & (data['messages']['request_id'] == request_id)]
+    else:
+        messages_df = pd.DataFrame()
+        
+    if 'images' in data:
+        images_df = data['images'][(data['images']['user_id'] == current_user) & (data['images']['request_id'] == request_id)]
+    else:
+        images_df = pd.DataFrame()
+        
+    return req_row, prof_row, events_df, opts_df, messages_df, images_df
 
-def build_system_prompt(problem_statement_path):
-    with open(problem_statement_path, 'r', encoding='utf-8') as f:
-        problem = f.read()
-    return f"""You are an AI-powered financial agent.
-Your task is to determine whether a user can safely afford a requested expense.
-
-Here are the rules you MUST follow exactly as written:
-{problem}
-
-You will be given the user's financial profile, past and scheduled events, relevant messages, images, and the request details along with payment options.
-
-You must output a JSON object containing EXACTLY these fields:
-- "scratchpad": String. Show your step-by-step reasoning. First, list recurring incomes and expenses. Then list modified/cancelled events based on messages. Then forecast daily balances for 90 days. Then evaluate each payment option. Finally, pick the best one using tie-breakers.
-- "amount_safe_to_pay": Float
-- "affordability_status": String (affordable_now, affordable_with_plan, affordable_later, not_affordable)
-- "recommended_payment_method": String (full_payment, partial_payment, installments, wait, not_recommended)
-- "payment_plan": String
-- "earliest_date_for_full_payment": String (or empty string if not applicable)
-- "spending_changes_needed": String
-- "decision_explanation": String
-"""
-
+# --- APPLICATION LOGIC ---
 def main():
-    st.title("🔒 SafePay Financial Agent")
+    init_auth()
+    
+    if not st.session_state.authenticated_user:
+        login()
+        return
+        
+    current_user = st.session_state.authenticated_user
+    
+    # Load secrets securely from server environment
+    load_dotenv()
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key or api_key == "your_key_here":
+        st.error("Server Configuration Error: LLM Provider is unavailable.")
+        return
+
+    # Layout
+    st.sidebar.markdown(f"**Logged in as:** `{current_user}`")
+    if st.sidebar.button("Logout"):
+        logout()
+        
+    st.title("🛡️ SafePay Financial Agent")
     st.markdown("### Secure & Verified Affordability Analysis")
     st.markdown("---")
     
-    api_key = st.sidebar.text_input("Gemini API Key", type="password")
-    
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     dataset_dir = os.path.join(base_dir, 'dataset')
+    image_dir = os.path.join(dataset_dir, 'media', 'images')
     
     try:
         data = load_datasets(dataset_dir)
-        requests_list = data['requests']['request_id'].tolist()
-    except Exception as e:
-        st.error(f"Failed to load dataset from {dataset_dir}: {e}")
+    except Exception:
+        st.error("Internal Server Error.")
         return
 
+    # Only show requests owned by the current user
+    user_requests = data['requests'][data['requests']['user_id'] == current_user]['request_id'].tolist()
+    
+    if not user_requests:
+        st.info("No requests found for your account.")
+        return
+        
     st.sidebar.markdown("### Select Request")
-    selected_request = st.sidebar.selectbox("Choose a Request ID to Analyze", requests_list)
+    selected_request = st.sidebar.selectbox("Choose a Request ID to Analyze", user_requests)
     
     if not selected_request:
         return
         
-    context, images_df, req, profile, payment_opts = get_request_context(selected_request, data)
+    try:
+        req_row, prof_row, events_df, opts_df, messages_df, images_df = get_authorized_request_context(selected_request, current_user, data)
+    except PermissionError:
+        st.error("403 Forbidden")
+        return
+    except Exception:
+        st.error("Internal Server Error")
+        return
+
+    req_obj = parse_request(req_row)
+    profile_obj = parse_profile(prof_row)
+    raw_events = [parse_event(r) for _, r in events_df.iterrows()]
+    payment_opts = [parse_payment_option(r) for _, r in opts_df.iterrows()]
     
-    # UI Layout: Two columns for displaying request info
+    # UI Layout: Display request info
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("👤 User Profile")
-        st.write(f"**User ID:** {profile['user_id']}")
-        st.write(f"**Current Balance:** {profile['current_available_balance']} {profile['home_currency']}")
-        st.write(f"**Minimum Protected Balance:** {profile['minimum_balance_to_keep']} {profile['home_currency']}")
+        st.write(f"**Current Balance:** {profile_obj.current_available_balance} {profile_obj.home_currency}")
+        st.write(f"**Minimum Protected Balance:** {profile_obj.minimum_balance_to_keep} {profile_obj.home_currency}")
         
     with col2:
         st.subheader("🛒 Request Details")
-        st.write(f"**Type:** {req['request_type'].capitalize()}")
-        st.write(f"**Requested Amount:** {req['requested_amount']} {profile['home_currency']}")
-        st.info(f"**User Message:** {req['request_text']}")
+        st.write(f"**Type:** {req_obj.request_type.capitalize()}")
+        st.write(f"**Requested Amount:** {req_obj.requested_amount} {profile_obj.home_currency}")
+        st.info(f"**User Message:** {req_obj.request_text}")
         
-    st.markdown("#### 💳 Available Payment Options")
-    st.dataframe(payment_opts[['payment_method', 'payment_amount', 'number_of_payments', 'total_payable_amount']], use_container_width=True)
-    
-    if st.button("🛡️ Run Secure Affordability Audit", type="primary"):
-        if not api_key:
-            st.error("Please enter your Gemini API Key in the sidebar.")
-            return
-            
-        with st.spinner("Analyzing 90-day financial forecast securely..."):
-            client = genai.Client(api_key=api_key)
-            system_prompt = build_system_prompt(os.path.join(base_dir, 'problem_statement.md'))
-            
-            prompt_text = f"User Context:\n{json.dumps(context, indent=2)}"
-            contents = [prompt_text]
-            
-            if not images_df.empty:
-                for _, img_row in images_df.iterrows():
-                    img_id = img_row['image_id']
-                    img_path = os.path.join(dataset_dir, 'media', 'images', f"{img_id}.png")
-                    if os.path.exists(img_path):
-                        img = PIL.Image.open(img_path)
-                        contents.append(img)
-                        
+    if st.button("🚀 Run Secure Affordability Audit", type="primary"):
+        with st.spinner("Analyzing 90-day financial forecast deterministically..."):
             try:
-                response = client.models.generate_content(
-                    model='gemini-1.5-pro',
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        response_mime_type="application/json",
-                        temperature=0.0
-                    )
-                )
-                result = json.loads(response.text)
+                # 1. AI Understanding Layer (Isolated)
+                llm_provider = LLMProvider(api_key=api_key)
+                extracted_facts = llm_provider.extract_facts(selected_request, messages_df, images_df, events_df, image_dir)
                 
+                # 2. Deterministic Financial Engine
+                resolver = ConflictResolver()
+                resolved_events = resolver.resolve(raw_events, extracted_facts)
+                
+                state_layer = FinancialStateLayer()
+                current_state = state_layer.reconstruct(resolved_events, req_obj)
+                
+                simulator = Simulator(profile_obj, current_state)
+                solver = Solver(simulator, req_obj, payment_opts)
+                candidates, amount_safe, earliest_full = solver.generate_candidate_plans()
+                
+                optimizer = Optimizer(profile_obj)
+                best_plan = optimizer.rank_plans(candidates)
+                
+                # 3. Independent Verifier
+                verifier = Verifier(simulator, req_obj)
+                
+                if not best_plan:
+                    out_status = "not_affordable"
+                    out_method = "not_recommended"
+                    out_plan = "none"
+                else:
+                    out_method = best_plan['method']
+                    out_plan = best_plan['plan_string']
+                    if out_method == "full_payment":
+                        out_status = "affordable_now"
+                    elif out_method == "wait":
+                        out_status = "affordable_later"
+                    else:
+                        out_status = "affordable_with_plan"
+                        
+                output_row = {
+                    'request_id': selected_request,
+                    'amount_safe_to_pay': str(amount_safe),
+                    'affordability_status': out_status,
+                    'recommended_payment_method': out_method,
+                    'payment_plan': out_plan,
+                    'earliest_date_for_full_payment': earliest_full if earliest_full else "",
+                }
+                
+                # Fail-closed Verification
+                if not verifier.verify(output_row):
+                    output_row['affordability_status'] = 'not_affordable'
+                    output_row['recommended_payment_method'] = 'not_recommended'
+                    output_row['payment_plan'] = 'none'
+
                 # Display Results
                 st.markdown("---")
                 st.subheader("✅ Audit Complete")
                 
-                status = result.get('affordability_status', '')
+                status = output_row['affordability_status']
                 if 'not_affordable' in status:
                     st.error(f"**Status:** {status.replace('_', ' ').title()} ❌")
                 elif 'later' in status:
                     st.warning(f"**Status:** {status.replace('_', ' ').title()} ⏳")
                 else:
-                    st.success(f"**Status:** {status.replace('_', ' ').title()} ✔️")
+                    st.success(f"**Status:** {status.replace('_', ' ').title()} 🎉")
                     
                 res_col1, res_col2 = st.columns(2)
                 with res_col1:
-                    st.metric("Amount Safe To Pay", f"{result.get('amount_safe_to_pay')} {profile['home_currency']}")
-                    st.write(f"**Recommended Method:** {result.get('recommended_payment_method', '').replace('_', ' ').title()}")
+                    st.metric("Amount Safe To Pay", f"{output_row['amount_safe_to_pay']} {profile_obj.home_currency}")
+                    st.write(f"**Recommended Method:** {output_row['recommended_payment_method'].replace('_', ' ').title()}")
                 with res_col2:
-                    st.write(f"**Payment Plan:** {result.get('payment_plan')}")
-                    st.write(f"**Spending Changes Needed:** {result.get('spending_changes_needed')}")
+                    st.write(f"**Payment Plan:** {output_row['payment_plan']}")
+                    st.write(f"**Earliest Safe Date:** {output_row['earliest_date_for_full_payment']}")
                     
-                st.info(f"**Decision Explanation:** {result.get('decision_explanation')}")
-                
-                with st.expander("🔍 View AI Reasoning (Scratchpad)"):
-                    st.text(result.get('scratchpad', 'No reasoning provided.'))
-                    
+                with st.expander("🔍 View AI-Extracted Facts (Provenance)"):
+                    if extracted_facts:
+                        for fact in extracted_facts:
+                            st.write(f"- **{fact.fact_type}**: {fact.amount} (Source: {fact.provenance.source})")
+                    else:
+                        st.write("No modifications found in messages/images.")
+                        
+            except PermissionError:
+                st.error("403 Forbidden")
             except Exception as e:
-                st.error(f"An error occurred during analysis: {e}")
+                # Log actual error securely on backend. Expose safe message to user.
+                print(f"Secure Backend Error: {e}")
+                st.error("Unable to process this request right now. Fallback to fail-closed state.")
 
 if __name__ == '__main__':
     main()
