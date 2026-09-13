@@ -1,3 +1,11 @@
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+        f.write('\n')
+        
+state_py = """
 from typing import List, Dict, Any, Tuple
 from code.models import FinancialEvent, Request, FinancialProfile
 from decimal import Decimal
@@ -7,7 +15,7 @@ import pandas as pd
 
 class FinancialStateLayer:
     def __init__(self, exchange_rates_df=None):
-        self.exchange_rates_df = exchange_rates_df if exchange_rates_df is not None else pd.DataFrame()
+        self.exchange_rates_df = exchange_rates_df
 
     def reconstruct(self, resolved_events: List[FinancialEvent], request: Request, profile: FinancialProfile) -> Dict[str, Any]:
         past_events = [e for e in resolved_events if e.event_date <= request.request_date]
@@ -36,12 +44,9 @@ class FinancialStateLayer:
                         
                     avg_amt = sum(e.amount for e in events) / len(events)
                     
+                    # Convert to home_currency
                     converted_amt = self._convert(avg_amt, last_event.currency, profile.home_currency, last_event.settlement_date or last_event.event_date)
                     
-                    min_amt = None
-                    if last_event.minimum_allowed_amount:
-                        min_amt = self._convert(last_event.minimum_allowed_amount, last_event.currency, profile.home_currency, last_event.settlement_date or last_event.event_date)
-                        
                     rec_event = {
                         "description": key[0],
                         "direction": key[1],
@@ -51,7 +56,7 @@ class FinancialStateLayer:
                         "frequency_days": round(avg_interval),
                         "next_date": next_date,
                         "last_event_id": last_event.event_id,
-                        "minimum_allowed_amount": min_amt
+                        "minimum_allowed_amount": self._convert(last_event.minimum_allowed_amount, last_event.currency, profile.home_currency, last_event.settlement_date or last_event.event_date) if last_event.minimum_allowed_amount else None
                     }
                     if key[1] == 'debit':
                         recurring_expenses.append(rec_event)
@@ -61,6 +66,7 @@ class FinancialStateLayer:
         explicit_future = []
         for e in future_events:
             if e.status in ['scheduled', 'pending', 'confirmed']:
+                # convert
                 converted_amt = self._convert(e.amount, e.currency, profile.home_currency, e.settlement_date or e.event_date)
                 e.amount = converted_amt
                 e.currency = profile.home_currency
@@ -96,3 +102,5 @@ class FinancialStateLayer:
             rate = Decimal(str(match.iloc[0]['rate']))
             return amount * rate
         return amount
+"""
+write_file('code/state.py', state_py)

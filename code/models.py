@@ -5,11 +5,16 @@ from datetime import date, datetime
 
 @dataclass
 class Provenance:
-    source: str  # e.g., "csv", "llm_message", "llm_image", "conflict_resolver"
+    source: str
     timestamp: str
     confidence: Decimal = Decimal('1.0')
     reasoning: str = ""
     original_data: Optional[Dict[str, Any]] = None
+    exchange_rate_used: Optional[Decimal] = None
+    rate_date: Optional[date] = None
+    original_amount: Optional[Decimal] = None
+    original_currency: Optional[str] = None
+    target_currency: Optional[str] = None
 
 @dataclass
 class FinancialProfile:
@@ -35,7 +40,7 @@ class FinancialEvent:
     amount: Decimal
     currency: str
     event_date: date
-    settlement_date: date
+    settlement_date: Optional[date]
     status: str
     linked_event_id: Optional[str]
     flexibility: str
@@ -71,13 +76,3 @@ class ExtractedFact:
     date: Optional[date]
     evidence: str
     provenance: Provenance
-
-@dataclass
-class FinancialCase:
-    request: Request
-    profile: FinancialProfile
-    events: List[FinancialEvent]
-    payment_options: List[PaymentOption]
-    extracted_facts: List[ExtractedFact]
-    resolved_events: List[FinancialEvent] = field(default_factory=list)
-

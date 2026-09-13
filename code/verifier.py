@@ -1,45 +1,40 @@
-from typing import Dict, Any, List
-from decimal import Decimal
+from typing import Dict, Any
 from code.models import Request
 from code.simulator import Simulator
+from decimal import Decimal
+from datetime import date
 
 class Verifier:
     def __init__(self, simulator: Simulator, request: Request):
         self.simulator = simulator
         self.request = request
         
-    def verify(self, output: Dict[str, Any]) -> bool:
-        """
-        Independently re-runs financial safety using the chosen plan.
-        """
-        # If not recommended, no math to verify
-        if output['recommended_payment_method'] == 'not_recommended':
-            return True
+    def verify(self, output_row: Dict[str, str], best_plan: Dict[str, Any]) -> bool:
+        if output_row['affordability_status'] == 'not_affordable':
+            return output_row['recommended_payment_method'] == 'not_recommended' and output_row['payment_plan'] == 'none'
             
-        plan_str = output['payment_plan']
-        plan = {}
-        if plan_str != 'none':
-            for chunk in plan_str.split('|'):
-                parts = chunk.split(':')
-                if len(parts) == 2:
-                    from datetime import date
-                    plan[date.fromisoformat(parts[0])] = Decimal(parts[1])
-                    
-        # Verify sum matches requested amount for full/partial/wait
-        if output['recommended_payment_method'] in ['full_payment', 'partial_payment', 'wait']:
-            total = sum(plan.values())
-            # small tolerance for floating precision issues during JSON extraction, though Decimal should prevent it
-            if abs(total - self.request.requested_amount) > Decimal('0.01'):
-                print(f"VERIFIER FAILED: Total {total} != requested {self.request.requested_amount}")
+        try:
+            # 1. Check amount safe to pay bounds
+            amt_safe = Decimal(output_row['amount_safe_to_pay'])
+            if not (Decimal(0) <= amt_safe <= self.request.requested_amount):
                 return False
                 
-        # Re-simulate mathematically
-        # Convert spending changes
-        # For simplicity in hackathon, if there are spending changes, we would parse them here.
-        # Currently, solver generates empty spending changes.
-        is_safe, lowest_balance = self.simulator.simulate(self.request.request_date, plan, [])
-        if not is_safe:
-            print(f"VERIFIER FAILED: Plan violates minimum balance. Lowest: {lowest_balance}")
+            # 2. Check affordable_now date logic
+            if output_row['affordability_status'] == 'affordable_now':
+                if output_row['earliest_date_for_full_payment'] != self.request.request_date.isoformat():
+                    return False
+                    
+            # 3. Simulate again to independently prove it
+            if best_plan:
+                is_safe, _ = self.simulator.simulate(self.request.request_date, best_plan['plan'], best_plan.get('spending_changes', []))
+                if not is_safe:
+                    return False
+                    
+                # 4. Check deadline
+                last_date = max(best_plan['plan'].keys())
+                if last_date > self.request.desired_completion_date:
+                    return False
+                    
+            return True
+        except Exception:
             return False
-            
-        return True

@@ -13,14 +13,20 @@ class SecureDataLoader:
             if filename.endswith('.csv'):
                 name = filename.replace('.csv', '')
                 df = pd.read_csv(os.path.join(self.dataset_dir, filename))
-                # Normalize user_ids to prevent whitespace bypasses
                 if 'user_id' in df.columns:
                     df['user_id'] = df['user_id'].astype(str).str.strip()
                 data[name] = df.fillna('')
+                
+        # Merge sample_requests into requests if they exist, so we can run ALL requests
+        if 'sample_requests' in data:
+            if 'requests' in data:
+                data['requests'] = pd.concat([data['requests'], data['sample_requests']], ignore_index=True)
+            else:
+                data['requests'] = data['sample_requests']
+                
         return data
 
     def get_user_requests(self, security_context: SecurityContext) -> list:
-        """Returns only the request IDs owned by the authenticated user."""
         df = self.data.get('requests')
         if df is None or df.empty:
             return []
@@ -29,9 +35,6 @@ class SecureDataLoader:
         return df[df['user_id'] == user_id]['request_id'].tolist()
 
     def get_request_context(self, request_id: str, security_context: SecurityContext):
-        """
-        Safely retrieves the full context for a specific request, enforcing IDOR protection.
-        """
         df_req = self.data['requests']
         req_row = df_req[df_req['request_id'] == request_id.strip()]
         
@@ -60,4 +63,6 @@ class SecureDataLoader:
         if not images_df.empty:
             images_df = images_df[(images_df['user_id'] == user_id) & (images_df['request_id'] == request_id)]
             
-        return req_row, prof_row, events_df, opts_df, messages_df, images_df
+        rates_df = self.data.get('exchange_rates', pd.DataFrame())
+            
+        return req_row, prof_row, events_df, opts_df, messages_df, images_df, rates_df

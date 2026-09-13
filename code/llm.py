@@ -39,12 +39,17 @@ class LLMProvider:
         cache_key = request_id
         if cache_key in self._cache:
             return [ExtractedFact(
+                related_event_id=f.get('related_event_id'),
                 fact_type=f['fact_type'],
-                event_id=f.get('event_id'),
-                amount=f.get('amount'),
-                date=f.get('date'),
-                currency=f.get('currency'),
-                provenance=Provenance(**f['provenance']) if isinstance(f['provenance'], dict) else Provenance(source="cache", timestamp="")
+                amount=Decimal(str(f['amount'])) if f.get('amount') else None,
+                date=datetime.strptime(f['date'], '%Y-%m-%d').date() if isinstance(f.get('date'), str) else f.get('date'),
+                evidence=f.get('evidence', ''),
+                provenance=Provenance(
+                    source=f.get('provenance', {}).get('source', 'cache'),
+                    timestamp=f.get('provenance', {}).get('timestamp', ''),
+                    confidence=Decimal(str(f.get('provenance', {}).get('confidence', '1.0'))),
+                    reasoning=f.get('provenance', {}).get('reasoning', '')
+                ) if isinstance(f.get('provenance'), dict) else Provenance(source="cache", timestamp="")
             ) for f in self._cache[cache_key]]
             
         system_instruction = """You are a strict financial data extraction system.
@@ -119,7 +124,7 @@ Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
         facts = []
         try:
             response = self.client.models.generate_content(
-                model=self.model_name,
+                model='gemini-1.5-flash',
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
@@ -133,16 +138,38 @@ Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
                 if request_user_id and item.get('user_id') and item.get('user_id') != request_user_id:
                     continue
                 facts.append(ExtractedFact(
+                    related_event_id=item.get('related_event_id'),
                     fact_type=item.get('fact_type', 'unknown'),
-                    event_id=item.get('related_event_id'),
-                    amount=item.get('amount'),
-                    date=item.get('date'),
-                    currency=item.get('currency'),
-                    provenance=Provenance(source=item.get('source_type', 'llm_extraction'), timestamp=datetime.utcnow().isoformat(), reasoning=item.get('evidence', ''))
+                    amount=Decimal(str(item.get('amount'))) if item.get('amount') else None,
+                    date=datetime.strptime(item.get('date'), '%Y-%m-%d').date() if item.get('date') else None,
+                    evidence=item.get('evidence', ''),
+                    provenance=Provenance(
+                        source=item.get('source_type', 'llm_extraction'),
+                        timestamp=datetime.utcnow().isoformat(),
+                        confidence=Decimal(str(item.get('confidence', '1.0'))),
+                        reasoning=item.get('evidence', '')
+                    )
                 ))
             
-            import dataclasses
-            self._cache[cache_key] = [dataclasses.asdict(f) for f in facts]
+            
+            json_facts = []
+            for f in facts:
+                d = {
+                    "related_event_id": f.related_event_id,
+                    "fact_type": f.fact_type,
+                    "amount": str(f.amount) if f.amount else None,
+                    "date": f.date.strftime('%Y-%m-%d') if f.date else None,
+                    "evidence": f.evidence,
+                    "provenance": {
+                        "source": f.provenance.source,
+                        "timestamp": f.provenance.timestamp,
+                        "confidence": str(f.provenance.confidence),
+                        "reasoning": f.provenance.reasoning
+                    }
+                }
+                json_facts.append(d)
+                
+            self._cache[cache_key] = json_facts
             self._save_cache()
             return facts
         except Exception as e:

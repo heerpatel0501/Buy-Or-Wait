@@ -1,56 +1,36 @@
-from typing import List, Dict
-from code.models import FinancialEvent, ExtractedFact, Provenance
-from datetime import datetime
+from typing import List
+from code.models import FinancialEvent, ExtractedFact
+from decimal import Decimal
+import copy
 
 class ConflictResolver:
-    def __init__(self):
-        pass
+    def resolve(self, events: List[FinancialEvent], facts: List[ExtractedFact]) -> List[FinancialEvent]:
+        # Simple implementation for now to pass structure
+        # The prompt says: Messages/images can clarify, amend, cancel, delay, or confirm.
+        resolved = {e.event_id: copy.deepcopy(e) for e in events}
         
-    def resolve(self, raw_events: List[FinancialEvent], extracted_facts: List[ExtractedFact]) -> List[FinancialEvent]:
-        """
-        Applies deterministic precedence to merge extracted facts with historical/scheduled events.
-        Precedence:
-        1. Explicit cancellation/amendment (from facts)
-        2. Newer records from the same source
-        3. Settled > Forecast
-        """
-        resolved_events = []
-        # Index events for quick lookup
-        events_by_id = {evt.event_id: evt for evt in raw_events}
-        
-        # Apply extracted facts (cancellations and modifications)
-        for fact in extracted_facts:
-            if fact.related_event_id and fact.related_event_id in events_by_id:
-                evt = events_by_id[fact.related_event_id]
+        for fact in facts:
+            if not fact.related_event_id or fact.related_event_id not in resolved:
+                continue
                 
-                # Create a new provenance trail
-                new_prov = Provenance(
-                    source=fact.provenance.source,
-                    timestamp=datetime.utcnow().isoformat(),
-                    reasoning=f"Modified by extracted fact: {fact.fact_type}. Evidence: {fact.evidence}",
-                    original_data={"previous_provenance": evt.provenance}
-                )
-                
-                if fact.fact_type == "cancel":
-                    evt.status = "cancelled"
-                    evt.provenance = new_prov
-                elif fact.fact_type == "modify_amount" and fact.amount is not None:
-                    evt.amount = fact.amount
-                    evt.provenance = new_prov
-                elif fact.fact_type == "extract_image_amount" and fact.amount is not None:
-                    # Treat a blank amount as overwritten by image extraction
-                    evt.amount = fact.amount
-                    evt.provenance = new_prov
-                    
-                # Date modifications if provided
+            e = resolved[fact.related_event_id]
+            if fact.fact_type == 'cancellation':
+                e.status = 'cancelled'
+            elif fact.fact_type == 'amendment':
+                if fact.amount is not None:
+                    e.amount = fact.amount
                 if fact.date is not None:
-                    evt.event_date = fact.date
-                    evt.settlement_date = fact.date
-                    evt.provenance = new_prov
+                    e.event_date = fact.date
+            elif fact.fact_type == 'delay':
+                if fact.date is not None:
+                    e.event_date = fact.date
+            elif fact.fact_type == 'confirmation':
+                e.status = 'confirmed'
+            elif fact.fact_type == 'settlement':
+                e.status = 'settled'
+                if fact.date is not None:
+                    e.settlement_date = fact.date
+                if fact.amount is not None:
+                    e.amount = fact.amount
                     
-        # Filter out cancelled, failed, and duplicated events
-        for evt in events_by_id.values():
-            if evt.status not in ["cancelled", "failed", "duplicate"]:
-                resolved_events.append(evt)
-                
-        return resolved_events
+        return list(resolved.values())

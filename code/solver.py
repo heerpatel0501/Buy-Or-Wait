@@ -10,113 +10,123 @@ class Solver:
         self.request = request
         self.payment_options = payment_options
         
-    def find_amount_safe_to_pay(self, spending_changes=None) -> Decimal:
-        """
-        Uses binary search or monotonic feasibility to find max safe amount today.
-        """
+    def generate_candidate_plans(self) -> Tuple[List[Dict[str, Any]], Decimal, str]:
+        # 1. Base max safe without spending changes (amount_safe_to_pay)
+        amount_safe = self._find_amount_safe(spending_changes=[])
+        
+        # 2. Base earliest full date without spending changes
+        earliest_full_date = self._find_earliest_full(spending_changes=[])
+        
+        candidates = []
+        
+        profile = self.simulator.profile
+        state = self.simulator.state
+        possible_changes = [[]]
+        
+        flex_stop = profile.expense_categories_user_is_willing_to_stop
+        flex_reduce = profile.expense_categories_user_is_willing_to_reduce
+        
+        single_changes = []
+        for exp in state['recurring_expenses']:
+            if exp['flexibility'] == 'flexible':
+                if exp['category'] in flex_stop:
+                    single_changes.append([{'type': 'stop', 'target_event_id': exp['last_event_id']}])
+                if exp['category'] in flex_reduce and exp['minimum_allowed_amount'] is not None:
+                    single_changes.append([{'type': 'reduce_to', 'target_event_id': exp['last_event_id'], 'new_amount': exp['minimum_allowed_amount']}])
+                    
+        possible_changes.extend(single_changes)
+        
+        for sc in possible_changes:
+            # Full
+            if "full_payment" in profile.payment_methods_user_will_consider:
+                is_full, _ = self.simulator.simulate(self.request.request_date, {self.request.request_date: self.request.requested_amount}, sc)
+                if is_full:
+                    candidates.append({
+                        "method": "full_payment",
+                        "plan": {self.request.request_date: self.request.requested_amount},
+                        "total_paid": self.request.requested_amount,
+                        "spending_changes": sc,
+                        "option_id": None
+                    })
+                    
+            # Partial
+            if "partial_payment" in profile.payment_methods_user_will_consider and self.request.allows_partial_payment:
+                if amount_safe > 0 and amount_safe < self.request.requested_amount:
+                    e_date = earliest_full_date
+                    if not e_date: e_date = self._find_earliest_full(sc)
+                    if e_date:
+                        ed = date.fromisoformat(e_date)
+                        if ed <= self.request.desired_completion_date:
+                            plan = {
+                                self.request.request_date: amount_safe,
+                                ed: self.request.requested_amount - amount_safe
+                            }
+                            is_part, _ = self.simulator.simulate(self.request.request_date, plan, sc)
+                            if is_part:
+                                candidates.append({
+                                    "method": "partial_payment",
+                                    "plan": plan,
+                                    "total_paid": self.request.requested_amount,
+                                    "spending_changes": sc,
+                                    "option_id": None
+                                })
+                                
+            # Installments
+            if "installments" in profile.payment_methods_user_will_consider:
+                for opt in self.payment_options:
+                    if opt.payment_method == "installments":
+                        plan = {}
+                        for i in range(opt.number_of_payments):
+                            p_date = opt.first_payment_date + timedelta(days=i * (opt.payment_frequency_days or 30))
+                            plan[p_date] = opt.payment_amount
+                        is_inst, _ = self.simulator.simulate(self.request.request_date, plan, sc)
+                        last_date = max(plan.keys())
+                        if is_inst and last_date <= self.request.desired_completion_date:
+                            candidates.append({
+                                "method": "installments",
+                                "plan": plan,
+                                "total_paid": opt.total_payable_amount,
+                                "spending_changes": sc,
+                                "option_id": opt.payment_option_id
+                            })
+                            
+            # Wait
+            if "full_payment" in profile.payment_methods_user_will_consider:
+                e_date = self._find_earliest_full(sc)
+                if e_date:
+                    ed = date.fromisoformat(e_date)
+                    if self.request.request_date < ed <= self.request.desired_completion_date:
+                        plan = {ed: self.request.requested_amount}
+                        is_wait, _ = self.simulator.simulate(self.request.request_date, plan, sc)
+                        if is_wait:
+                            candidates.append({
+                                "method": "wait",
+                                "plan": plan,
+                                "total_paid": self.request.requested_amount,
+                                "spending_changes": sc,
+                                "option_id": None
+                            })
+                            
+        return candidates, amount_safe, earliest_full_date
+        
+    def _find_amount_safe(self, spending_changes) -> Decimal:
         low = Decimal(0)
         high = self.request.requested_amount
         best = Decimal(0)
-        
-        # Simple binary search (down to 2 decimal places)
         while high - low >= Decimal('0.01'):
-            mid = (low + high) / Decimal(2)
-            mid = round(mid, 2)
-            
-            is_safe, _ = self.simulator.simulate(
-                self.request.request_date, 
-                {self.request.request_date: mid}, 
-                spending_changes
-            )
-            
+            mid = round((low + high) / Decimal(2), 2)
+            is_safe, _ = self.simulator.simulate(self.request.request_date, {self.request.request_date: mid}, spending_changes)
             if is_safe:
                 best = mid
                 low = mid + Decimal('0.01')
             else:
                 high = mid - Decimal('0.01')
-                
         return best
 
-    def find_earliest_full_payment_date(self) -> str:
-        """
-        Finds earliest date full payment is safe without spending changes.
-        """
+    def _find_earliest_full(self, spending_changes) -> str:
         for i in range(91):
-            test_date = self.request.request_date + timedelta(days=i)
-            is_safe, _ = self.simulator.simulate(
-                self.request.request_date, 
-                {test_date: self.request.requested_amount}
-            )
+            d = self.request.request_date + timedelta(days=i)
+            is_safe, _ = self.simulator.simulate(self.request.request_date, {d: self.request.requested_amount}, spending_changes)
             if is_safe:
-                return test_date.isoformat()
+                return d.isoformat()
         return ""
-
-    def generate_candidate_plans(self) -> List[Dict[str, Any]]:
-        candidates = []
-        earliest_full_date = self.find_earliest_full_payment_date()
-        amount_safe = self.find_amount_safe_to_pay()
-        
-        # 1. Full Payment Now
-        is_full_safe, _ = self.simulator.simulate(self.request.request_date, {self.request.request_date: self.request.requested_amount})
-        if is_full_safe:
-            candidates.append({
-                "method": "full_payment",
-                "plan": {self.request.request_date: self.request.requested_amount},
-                "total_paid": self.request.requested_amount,
-                "spending_changes": [],
-                "option_id": None
-            })
-            
-        # 2. Partial Payment
-        if self.request.allows_partial_payment and amount_safe > 0 and amount_safe < self.request.requested_amount:
-            if earliest_full_date:
-                e_date = date.fromisoformat(earliest_full_date)
-                if e_date <= self.request.desired_completion_date:
-                    plan = {
-                        self.request.request_date: amount_safe,
-                        e_date: self.request.requested_amount - amount_safe
-                    }
-                    is_part_safe, _ = self.simulator.simulate(self.request.request_date, plan)
-                    if is_part_safe:
-                        candidates.append({
-                            "method": "partial_payment",
-                            "plan": plan,
-                            "total_paid": self.request.requested_amount,
-                            "spending_changes": [],
-                            "option_id": None
-                        })
-                        
-        # 3. Wait
-        if earliest_full_date:
-            e_date = date.fromisoformat(earliest_full_date)
-            if e_date <= self.request.desired_completion_date and e_date > self.request.request_date:
-                plan = {e_date: self.request.requested_amount}
-                candidates.append({
-                    "method": "wait",
-                    "plan": plan,
-                    "total_paid": self.request.requested_amount,
-                    "spending_changes": [],
-                    "option_id": None
-                })
-                
-        # 4. Installments
-        for opt in self.payment_options:
-            if opt.payment_method == "installments":
-                plan = {}
-                for i in range(opt.number_of_payments):
-                    p_date = opt.first_payment_date + timedelta(days=i * (opt.payment_frequency_days or 30))
-                    plan[p_date] = opt.payment_amount
-                
-                is_inst_safe, _ = self.simulator.simulate(self.request.request_date, plan)
-                # Check completion date
-                last_payment_date = max(plan.keys())
-                if is_inst_safe and last_payment_date <= self.request.desired_completion_date:
-                    candidates.append({
-                        "method": "installments",
-                        "plan": plan,
-                        "total_paid": opt.total_payable_amount,
-                        "spending_changes": [],
-                        "option_id": opt.payment_option_id
-                    })
-                    
-        return candidates, amount_safe, earliest_full_date

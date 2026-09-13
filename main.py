@@ -91,23 +91,29 @@ def main():
         
     llm_provider = LLMProvider(api_key=api_key)
     resolver = ConflictResolver()
-    state_layer = FinancialStateLayer()
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_dir = os.path.join(base_dir, 'dataset')
     image_dir = os.path.join(dataset_dir, 'media', 'images')
     
     data = load_datasets(dataset_dir)
-    num_requests = len(data['requests'])
+    
+    # Run requests AND sample_requests if present
+    reqs = data.get('requests', pd.DataFrame())
+    if 'sample_requests' in data:
+        reqs = pd.concat([reqs, data['sample_requests']], ignore_index=True)
+    
+    num_requests = len(reqs)
     output_rows = []
     
     print(f"Processing {num_requests} requests using deterministic engine...")
+    rates_df = data.get('exchange_rates', pd.DataFrame())
+    state_layer = FinancialStateLayer(rates_df)
     
-    for idx, row in data['requests'].iterrows():
+    for idx, row in reqs.iterrows():
         request_id = row['request_id']
         user_id = row['user_id']
         
-        # 1. Parse base structures
         req_obj = parse_request(row)
         prof_row = data['financial_profiles'][data['financial_profiles']['user_id'] == user_id].iloc[0]
         profile_obj = parse_profile(prof_row)
@@ -118,38 +124,46 @@ def main():
         opts_df = data['request_payment_options'][data['request_payment_options']['request_id'] == request_id]
         payment_opts = [parse_payment_option(r) for _, r in opts_df.iterrows()]
         
-        # 2. Extract Facts via LLM (Relevance filtering)
-        messages_df = data['messages'][data['messages']['user_id'] == user_id] if 'messages' in data else pd.DataFrame()
-        images_df = data['images'][(data['images']['user_id'] == user_id) | (data['images']['request_id'] == request_id)] if 'images' in data else pd.DataFrame()
+        messages_df = data.get('messages', pd.DataFrame())
+        if not messages_df.empty:
+            messages_df = messages_df[messages_df['user_id'] == user_id]
+        images_df = data.get('images', pd.DataFrame())
+        if not images_df.empty:
+            images_df = images_df[(images_df['user_id'] == user_id) | (images_df['request_id'] == request_id)]
         
         extracted_facts = llm_provider.extract_facts(request_id, messages_df, images_df, events_df, image_dir)
-        
-        # 3. Resolve Conflicts deterministically
         resolved_events = resolver.resolve(raw_events, extracted_facts)
         
-        # 4. Reconstruct Financial State
-        current_state = state_layer.reconstruct(resolved_events, req_obj)
+        current_state = state_layer.reconstruct(resolved_events, req_obj, profile_obj)
         
-        # 5. Simulate & Solve
         simulator = Simulator(profile_obj, current_state)
         solver = Solver(simulator, req_obj, payment_opts)
         candidates, amount_safe, earliest_full = solver.generate_candidate_plans()
         
-        # 6. Optimize
-        optimizer = Optimizer(profile_obj)
+        optimizer = Optimizer(profile_obj, req_obj)
         best_plan = optimizer.rank_plans(candidates)
         
-        # 7. Verify
-        verifier = Verifier(simulator, req_obj)
-        
-        # Output building
         if not best_plan:
             out_status = "not_affordable"
             out_method = "not_recommended"
             out_plan = "none"
+            sc_needed = "none"
         else:
             out_method = best_plan['method']
             out_plan = best_plan['plan_string']
+            
+            sc_changes = best_plan.get('spending_changes', [])
+            if sc_changes:
+                sc_strs = []
+                for change in sc_changes:
+                    if change['type'] == 'stop':
+                        sc_strs.append(f"stop:{change['target_event_id']}")
+                    else:
+                        sc_strs.append(f"reduce_to:{change['target_event_id']}:{change['new_amount']}")
+                sc_needed = "|".join(sc_strs)
+            else:
+                sc_needed = "none"
+                
             if out_method == "full_payment":
                 out_status = "affordable_now"
             elif out_method == "wait":
@@ -159,18 +173,19 @@ def main():
                 
         output_row = {
             'request_id': request_id,
-            'amount_safe_to_pay': str(amount_safe),
+            'amount_safe_to_pay': str(amount_safe) if amount_safe is not None else "0",
             'affordability_status': out_status,
             'recommended_payment_method': out_method,
             'payment_plan': out_plan,
             'earliest_date_for_full_payment': earliest_full if earliest_full else "",
-            'spending_changes_needed': "none",  # Not implemented in strict deterministic MVP to avoid complexity
+            'spending_changes_needed': sc_needed,
             'decision_explanation': f"Deterministic calculation selected {out_method}."
         }
         
-        is_verified = verifier.verify(output_row)
+        verifier = Verifier(simulator, req_obj)
+        is_verified = verifier.verify(output_row, best_plan)
+        
         if not is_verified:
-            # Fail-closed
             output_row['affordability_status'] = 'not_affordable'
             output_row['recommended_payment_method'] = 'not_recommended'
             output_row['payment_plan'] = 'none'
@@ -179,7 +194,10 @@ def main():
         print(f"Processed {request_id} -> {output_row['recommended_payment_method']}")
         
     output_df = pd.DataFrame(output_rows)
-    output_df.to_csv(os.path.join(dataset_dir, 'output.csv'), index=False)
+    # The output MUST be exactly what problem_statement says, in exactly that order
+    cols = ['request_id', 'amount_safe_to_pay', 'affordability_status', 'recommended_payment_method', 'payment_plan', 'earliest_date_for_full_payment', 'spending_changes_needed', 'decision_explanation']
+    output_df = output_df[cols]
+    output_df.to_csv(os.path.join(base_dir, 'output.csv'), index=False)
     
 if __name__ == '__main__':
     main()
