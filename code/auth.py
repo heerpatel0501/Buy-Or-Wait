@@ -35,7 +35,7 @@ def authenticate(username: str, password: str) -> str:
     Authenticates a user and returns their internal immutable UUID.
     Returns None if authentication fails.
     """
-    demo_pass = os.environ.get("SAFEPAY_DEMO_PASSWORD", "SafePay2026!")
+    demo_pass = os.environ.get("SAFEPAY_DEMO_PASSWORD", "password123")
     if password == demo_pass:
         return str(uuid.uuid5(uuid.NAMESPACE_DNS, username))
     
