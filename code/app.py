@@ -183,7 +183,9 @@ def main_dashboard():
             except PermissionError:
                 st.error("Access Denied: Resource ownership violation.")
             except Exception as e:
-                st.error("Unable to complete the financial analysis safely.")
+                import traceback
+                st.error(f"Unable to complete the financial analysis safely. Error: {e}")
+                st.code(traceback.format_exc())
                 print(f"Diagnostics: {e}")
 
 if __name__ == "__main__":

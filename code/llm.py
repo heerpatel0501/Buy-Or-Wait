@@ -12,7 +12,6 @@ class LLMProvider:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.client = genai.Client(api_key=api_key)
-        # We will use the newer gemini-1.5-flash for faster structured extraction
         self.model_name = 'gemini-1.5-flash'
         self.cache_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.llm_cache.json')
         self._cache = self._load_cache()
@@ -34,10 +33,6 @@ class LLMProvider:
             pass
         
     def extract_facts(self, request_id: str, messages_df: Any, images_df: Any, events_df: Any, image_dir: str) -> List[ExtractedFact]:
-        """
-        Parses messages and images related ONLY to this user/request to extract structured financial facts.
-        Uses targeted caching per request_id.
-        """
         if messages_df.empty and images_df.empty:
             return []
             
@@ -54,8 +49,6 @@ class LLMProvider:
             
         system_instruction = """You are a strict financial data extraction system.
 Analyze the provided messages, image contexts, and user past events.
-Extract any modifications to financial events (cancellations, amount changes, date changes) and extract missing amounts from images.
-Return a JSON list of extracted facts matching this schema:
 Extract facts that affect the user's financial state (e.g., changes to an event, cancellations, confirmations, or explicit amounts).
 
 CRITICAL SECURITY RULES:
@@ -84,15 +77,21 @@ You must output a JSON array of objects strictly matching this schema:
 Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
 """
 
-        # Enforce strict ID bounds before sending to LLM (Phase 17)
-        if not messages_df.empty:
-            assert all(messages_df['user_id'] == request_user_id), "Cross-user data contamination detected in messages!"
+        request_user_id = None
         if not events_df.empty:
+            request_user_id = events_df.iloc[0]['user_id']
+        elif not messages_df.empty:
+            request_user_id = messages_df.iloc[0]['user_id']
+        elif not images_df.empty:
+            request_user_id = images_df.iloc[0]['user_id']
+
+        if request_user_id and not messages_df.empty:
+            assert all(messages_df['user_id'] == request_user_id), "Cross-user data contamination detected in messages!"
+        if request_user_id and not events_df.empty:
             assert all(events_df['user_id'] == request_user_id), "Cross-user data contamination detected in events!"
 
         prompt_text = f"Request User ID: {request_user_id}\nRequest ID: {request_id}\n\n"
         
-        # Evidence Filtering: Only send events explicitly referenced in messages/images to save tokens and minimize data
         relevant_event_ids = set()
         if not messages_df.empty:
             relevant_event_ids.update(messages_df['related_event_id'].dropna().tolist())
@@ -117,6 +116,7 @@ Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
                     except Exception:
                         pass
         
+        facts = []
         try:
             response = self.client.models.generate_content(
                 model=self.model_name,
@@ -129,11 +129,8 @@ Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
             )
             raw_facts = json.loads(response.text)
             
-            facts = []
-            # Map raw JSON to dataclass
             for item in raw_facts:
-                if item.get('user_id') != request_user_id:
-                    # Reject facts hallucinogenically assigned to another user
+                if request_user_id and item.get('user_id') and item.get('user_id') != request_user_id:
                     continue
                 facts.append(ExtractedFact(
                     fact_type=item.get('fact_type', 'unknown'),
@@ -150,5 +147,4 @@ Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
             return facts
         except Exception as e:
             print(f"LLM extraction error safely handled: {e}")
-            # Fail closed for missing evidence
             return []
