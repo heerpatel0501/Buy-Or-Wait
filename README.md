@@ -115,7 +115,23 @@ For every row in `dataset/requests.csv`, produce one row in `output.csv` with:
 5. Verify deterministically — bounds, plan feasibility, schedule match, flexible-only spending changes — before writing `output.csv`.
 6. Score yourself on the solved samples, then run the full dataset.
 
-You may use any language or runtime. Python, JavaScript, and TypeScript are all reasonable choices.
+## Prerequisites
+
+- Python 3.9+
+- google-genai
+- pandas
+- streamlit
+- python-dotenv
+
+## 🔑 Setup
+
+1. Copy `.env.example` to `.env`
+2. Add your Gemini API key to `.env` (`GEMINI_API_KEY=your_key_here`)
+3. Install dependencies: `pip install -r code/requirements.txt`
+
+## 🚀 Running the Agent
+
+You can run the web UI or the batch evaluation script. The backend relies strictly on the `gemini-1.5-flash` model for structured extraction.
 
 ---
 
