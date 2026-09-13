@@ -107,7 +107,7 @@ def generate_docx(data_dict, req_id):
 # ---------------------------------------------------------
 # SYSTEMIC CSS FOR HIGH CONTRAST & SINGLE PAGE LOOK
 # ---------------------------------------------------------
-def inject_custom_css():
+def inject_main_css():
     theme = st.session_state.get('theme', 'light')
     if theme == 'dark':
         bg = "#0F172A"          
@@ -268,38 +268,306 @@ def inject_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# AUTHENTICATION UI
-# ---------------------------------------------------------
+def inject_login_css():
+    st.markdown("""
+    <style>
+        /* Hide Default Header elements */
+        [data-testid="stHeader"] { display: none; }
+        #MainMenu { visibility: hidden; }
+        footer { visibility: hidden; }
+        
+        .stApp {
+            background-color: #FFFFFF;
+            color: #0F172A;
+            font-family: 'Inter', -apple-system, sans-serif;
+        }
+        
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+            max-width: 1400px;
+        }
+        
+        /* Typography overrides */
+        h1, h2, h3, p { color: #0F172A; }
+        
+        /* Inputs */
+        div[data-baseweb="input"] {
+            border-radius: 8px !important;
+            border-color: #E2E8F0 !important;
+        }
+        div[data-baseweb="input"] input {
+            color: #0F172A !important;
+            background-color: #FFFFFF !important;
+            -webkit-text-fill-color: #0F172A !important;
+            padding: 12px 14px !important;
+        }
+        div[data-baseweb="input"]:focus-within {
+            border-color: #157F87 !important;
+            box-shadow: 0 0 0 1px #157F87 !important;
+        }
+        
+        /* Primary Button */
+        div[data-testid="stFormSubmitButton"] button {
+            background-color: #157F87 !important;
+            border-color: #157F87 !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            width: 100% !important;
+        }
+        div[data-testid="stFormSubmitButton"] button p {
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+            font-size: 16px !important;
+        }
+        div[data-testid="stFormSubmitButton"] button:hover {
+            background-color: #11676E !important;
+            border-color: #11676E !important;
+        }
+        
+        /* Right Panel */
+        .login-right-panel {
+            background: linear-gradient(180deg, #053D42 0%, #032124 100%);
+            border-radius: 24px;
+            height: 85vh;
+            padding: 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            text-align: center;
+            color: white;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-right-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .login-right-panel h2 {
+            color: white !important;
+            font-size: 32px !important;
+            font-weight: 700 !important;
+            margin-bottom: 16px !important;
+            line-height: 1.3 !important;
+            z-index: 1;
+        }
+        .login-right-panel p {
+            color: #94A3B8 !important;
+            font-size: 16px !important;
+            line-height: 1.6 !important;
+            max-width: 400px;
+            z-index: 1;
+        }
+        
+        .login-logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #157F87;
+            display: flex;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+        
+        /* Tabs */
+        .login-tabs {
+            display: flex;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 32px;
+            margin-top: 16px;
+        }
+        .login-tab-active {
+            flex: 1;
+            background: white;
+            color: #0F172A;
+            font-weight: 600;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .login-tab-inactive {
+            flex: 1;
+            color: #64748B;
+            font-weight: 500;
+            text-align: center;
+            padding: 10px;
+        }
+        
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #94A3B8;
+            margin: 24px 0;
+            font-size: 14px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #E2E8F0;
+        }
+        .divider:not(:empty)::before { margin-right: 12px; }
+        .divider:not(:empty)::after { margin-left: 12px; }
+        
+        /* Social */
+        .social-row {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .social-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid #E2E8F0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            color: #0F172A;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            cursor: pointer;
+        }
+        
+        /* Helper to center the left column content */
+        .left-col-inner {
+            padding: 24px 48px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        /* Mock Cards */
+        .mock-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            color: #0F172A;
+            width: 80%;
+            text-align: left;
+            z-index: 1;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
 def login_ui():
-    inject_custom_css()
+    inject_login_css()
     
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    col_left, col_right = st.columns([1, 1.2], gap="large")
+    
+    with col_left:
         st.markdown("""
-        <div class="dark-card" style="text-align: center;">
-            <h1 style="color: #F8FAFC !important; font-size: 32px !important; margin-bottom: 16px !important;">SafePay Financial</h1>
-            <p style="color: #CBD5E1; margin-bottom: 8px;">Know what you can safely afford before you pay.</p>
+        <div class="left-col-inner">
+            <div class="login-logo">
+                <span style="margin-right: 8px;">🏦</span> SafePay
+            </div>
+            
+            <h1 style="font-size: 32px !important; margin-bottom: 8px !important;">Welcome to SafePay</h1>
+            <p style="color: #64748B; margin-bottom: 24px; font-size: 15px;">Start your experience with SafePay by signing in or signing up.</p>
+            
+            <div class="login-tabs">
+                <div class="login-tab-active">Sign In</div>
+                <div class="login-tab-inactive">Sign Up</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
-        with st.form("login_form"):
-            username = st.text_input("User ID", placeholder="e.g. user_04")
-            password = st.text_input("Password", type="password", placeholder="password123")
-            submitted = st.form_submit_button("Sign in securely", type="primary", use_container_width=True)
+        with st.container():
+            col_pad_l, col_form, col_pad_r = st.columns([0.15, 0.7, 0.15])
+            with col_form:
+                with st.form("login_form"):
+                    st.markdown("**User ID <span style='color: #157F87;'>*</span>**", unsafe_allow_html=True)
+                    username = st.text_input("User ID", placeholder="Enter your user ID", label_visibility="collapsed")
+                    
+                    st.markdown("**Password <span style='color: #157F87;'>*</span>**", unsafe_allow_html=True)
+                    password = st.text_input("Password", type="password", placeholder="Enter your password", label_visibility="collapsed")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    submitted = st.form_submit_button("Sign In")
+                    
+                    if submitted:
+                        if username and password:
+                            uuid_val = authenticate(username, password)
+                            if uuid_val:
+                                st.session_state['authenticated_uuid'] = uuid_val
+                                st.session_state['dataset_user_id'] = username
+                                st.rerun()
+                            else:
+                                st.error("Authentication failed. Invalid credentials.")
+                        else:
+                            st.error("Please provide both User ID and Password.")
+                
+                st.markdown("""
+                <div class="divider">Or continue with</div>
+                <div class="social-row">
+                    <div class="social-btn"><span style="color: #EA4335;">G</span></div>
+                    <div class="social-btn"></div>
+                    <div class="social-btn"><span style="color: #1877F2;">f</span></div>
+                    <div class="social-btn">𝕏</div>
+                </div>
+                
+                <div style="text-align: center; color: #94A3B8; font-size: 12px; margin-top: 32px;">
+                    Copyright : SafePay, All Right Reserved <br><br> <span style="color: #157F87;">Term & Condition</span> &nbsp;|&nbsp; <span style="color: #157F87;">Privacy & Policy</span>
+                </div>
+                """, unsafe_allow_html=True)
+                
+    with col_right:
+        st.markdown("""
+        <div class="login-right-panel">
+            <div class="mock-card" style="transform: rotate(-2deg); margin-left: -10%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="font-weight: 600; font-size: 14px;">Financial Plan</div>
+                    <div style="font-size: 11px; color: #64748B;">This Month ⌄</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="width: 50px; height: 50px; border-radius: 50%; border: 6px solid #D4AF37; border-left-color: #157F87; border-bottom-color: #157F87;"></div>
+                    <div>
+                        <div style="font-size: 20px; font-weight: bold;">$2,005.45</div>
+                        <div style="font-size: 12px; color: #64748B;">Available</div>
+                    </div>
+                </div>
+            </div>
             
-            if submitted:
-                if username and password:
-                    uuid_val = authenticate(username, password)
-                    if uuid_val:
-                        st.session_state['authenticated_uuid'] = uuid_val
-                        st.session_state['dataset_user_id'] = username
-                        st.rerun()
-                    else:
-                        st.error("Authentication failed. Invalid credentials.")
-                else:
-                    st.error("Please provide both User ID and Password.")
+            <div class="mock-card" style="transform: rotate(2deg); margin-right: -10%; margin-top: -30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-weight: 600; font-size: 14px;">Future Funds</div>
+                </div>
+                <div style="font-weight: bold; font-size: 16px;">Bucket List Trip</div>
+                <div style="font-size: 12px; color: #64748B; margin-bottom: 8px;">Due date - Apr 09, 2026</div>
+                <div style="font-weight: bold; font-size: 18px; color: #157F87;">$1900 <span style="font-size: 12px; color: #94A3B8; font-weight: normal;">/ $5,000</span></div>
+            </div>
+            
+            <div style="width: 64px; height: 64px; background-color: #157F87; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 24px; margin-top: 24px; z-index: 1;">
+                🏦
+            </div>
+            <h2>A Unified Hub for Smarter<br>Financial Decision-Making</h2>
+            <p>SafePay empowers you with a unified financial command center—delivering deep insights and a 360° view of your entire economic world.</p>
+            
+            <div style="display: flex; gap: 8px; margin-top: 32px; margin-bottom: 16px; z-index: 1;">
+                <div style="width: 32px; height: 4px; background: white; border-radius: 2px;"></div>
+                <div style="width: 32px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
+                <div style="width: 32px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # ENGINE WRAPPER
@@ -466,7 +734,7 @@ def main_dashboard():
         login_ui()
         return
         
-    inject_custom_css()
+    inject_main_css()
     security_context = SecurityContext(uuid_val, dataset_user_id)
     
     # ---------------------------------------------------------
