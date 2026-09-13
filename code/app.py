@@ -105,7 +105,7 @@ def generate_docx(data_dict, req_id):
     return buffer
 
 # ---------------------------------------------------------
-# CUSTOM CSS FOR HIGH CONTRAST & SINGLE PAGE LOOK
+# SYSTEMIC CSS FOR HIGH CONTRAST & SINGLE PAGE LOOK
 # ---------------------------------------------------------
 def inject_custom_css():
     theme = st.session_state.get('theme', 'light')
@@ -138,18 +138,54 @@ def inject_custom_css():
         #MainMenu {{ visibility: hidden; }}
         footer {{ visibility: hidden; }}
         
-        /* Fix Button Text Colors */
-        div[data-testid="stButton"] button p, 
-        div[data-testid="stDownloadButton"] button p {{
-            color: {text} !important;
-        }}
+        /* SYSTEMIC BUTTON CLASSES (Navy/Gold Theme) */
         
+        /* Primary Buttons (Login, Save Note) */
+        div[data-testid="stButton"] button[kind="primary"],
+        div[data-testid="stFormSubmitButton"] button {{
+            background-color: #D4AF37 !important; /* Gold */
+            border-color: #D4AF37 !important;
+        }}
         div[data-testid="stButton"] button[kind="primary"] p,
         div[data-testid="stFormSubmitButton"] button p {{
-            color: white !important;
+            color: #0F172A !important; /* Navy */
+            font-weight: 700 !important;
         }}
         
-        /* Premium Card Styling */
+        /* Secondary Buttons (Logout, Export, standard st.button) */
+        div[data-testid="stButton"] button[kind="secondary"],
+        div[data-testid="stDownloadButton"] button {{
+            background-color: #1E293B !important; /* Navy */
+            border-color: #334155 !important;
+        }}
+        div[data-testid="stButton"] button[kind="secondary"] p,
+        div[data-testid="stDownloadButton"] button p {{
+            color: #F8FAFC !important; /* White */
+            font-weight: 500 !important;
+        }}
+        
+        /* Hover states */
+        div[data-testid="stButton"] button[kind="primary"]:hover,
+        div[data-testid="stFormSubmitButton"] button:hover {{
+            background-color: #FBBF24 !important;
+            border-color: #FBBF24 !important;
+        }}
+        div[data-testid="stButton"] button[kind="secondary"]:hover,
+        div[data-testid="stDownloadButton"] button:hover {{
+            background-color: #334155 !important;
+            border-color: #475569 !important;
+        }}
+        
+        /* Streamlit Native Container Styling */
+        div[data-testid="stVerticalBlockBorderWrapper"] {{
+            border-radius: 12px;
+            background-color: {card_bg};
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid {border};
+            padding: 8px; /* Inner padding for containers */
+        }}
+        
+        /* HTML Card Styling for non-widget blocks */
         .safepay-card {{
             background: {card_bg};
             border-radius: 12px;
@@ -160,10 +196,10 @@ def inject_custom_css():
         }}
         
         .dark-card {{
-            background-color: #1E293B;
+            background-color: #0F172A; /* Deep Navy */
             border-radius: 12px;
-            padding: 24px;
-            color: white;
+            padding: 40px 24px;
+            color: #F8FAFC;
             margin-bottom: 24px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }}
@@ -181,7 +217,7 @@ def inject_custom_css():
         }}
         
         /* Headings */
-        h1, h2, h3, h4 {{ color: {text} !important; }}
+        h1, h2, h3, h4 {{ color: {text}; }}
         h1 {{ font-size: 26px !important; font-weight: 700 !important; margin-bottom: 0!important; padding-bottom: 0!important;}}
         
         /* Metric box */
@@ -217,8 +253,8 @@ def login_ui():
         st.markdown("<br><br><br><br>", unsafe_allow_html=True)
         st.markdown("""
         <div class="dark-card" style="text-align: center;">
-            <h1 style="color: white !important; font-size: 32px !important; margin-bottom: 16px !important;">SafePay Financial</h1>
-            <p style="color: #CBD5E1; margin-bottom: 32px;">Know what you can safely afford before you pay.</p>
+            <h1 style="color: #F8FAFC !important; font-size: 32px !important; margin-bottom: 16px !important;">SafePay Financial</h1>
+            <p style="color: #CBD5E1; margin-bottom: 8px;">Know what you can safely afford before you pay.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -421,7 +457,6 @@ def main_dashboard():
         
     with tb3:
         # Shared Container for Theme + Profile
-        # We simulate a "pill" by wrapping them closely in columns without extra borders
         p1, p2, p3 = st.columns([1.5, 0.2, 3], vertical_alignment="center")
         with p1:
             theme_choice = st.selectbox("Theme", ["Light", "Dark"], index=0 if st.session_state.get('theme', 'light') == 'light' else 1, label_visibility="collapsed")
@@ -548,26 +583,29 @@ def main_dashboard():
         
         # --- SECTION C: 90-Day Forecast Chart ---
         st.markdown('<div class="section-header">90-Day Forecast</div>', unsafe_allow_html=True)
-        st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-        
-        if history:
-            df_hist = pd.DataFrame(history)
-            fig_hist = go.Figure()
-            fig_hist.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Projected Balance', line=dict(color="#3B82F6", width=3)))
-            fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="#EF4444", annotation_text="Minimum Allowed Balance", annotation_position="bottom right")
+        with st.container(border=True):
+            if history:
+                df_hist = pd.DataFrame(history)
+                fig_hist = go.Figure()
+                fig_hist.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Projected Balance', line=dict(color="#3B82F6", width=3)))
+                fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="#EF4444", annotation_text="Minimum Allowed Balance", annotation_position="bottom right", annotation_font_color="#7F1D1D")
+                
+                # Darker labels for contrast
+                theme_str = st.session_state.get('theme', 'light')
+                ax_color = "#1E293B" if theme_str == 'light' else "#E2E8F0"
+                
+                fig_hist.update_layout(
+                    height=350, 
+                    margin=dict(l=0, r=0, t=10, b=0),
+                    paper_bgcolor="rgba(0,0,0,0)", 
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    xaxis=dict(tickfont=dict(color=ax_color, size=12)),
+                    yaxis=dict(tickfont=dict(color=ax_color, size=12))
+                )
+                st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("No forecast history available.")
             
-            fig_hist.update_layout(
-                height=350, 
-                margin=dict(l=0, r=0, t=10, b=0),
-                paper_bgcolor="rgba(0,0,0,0)", 
-                plot_bgcolor="rgba(0,0,0,0)"
-            )
-            st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("No forecast history available.")
-            
-        st.markdown('</div>', unsafe_allow_html=True)
-        
         # --- SECTION D: Verification Proof + Timestamp ---
         st.markdown('<div class="section-header">Verification Proof</div>', unsafe_allow_html=True)
         
@@ -599,26 +637,25 @@ def main_dashboard():
         
         # --- SECTION E: User History ---
         st.markdown('<div class="section-header">User History</div>', unsafe_allow_html=True)
-        st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-        if not events_df.empty:
-            display_df = events_df[['event_date', 'direction', 'amount', 'currency', 'category', 'description']].sort_values('event_date', ascending=False)
-            st.dataframe(display_df, use_container_width=True, height=250)
-        else:
-            st.info("No prior history found for this user.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            if not events_df.empty:
+                display_df = events_df[['event_date', 'direction', 'amount', 'currency', 'category', 'description']].sort_values('event_date', ascending=False)
+                st.dataframe(display_df, use_container_width=True, height=250)
+            else:
+                st.info("No prior history found for this user.")
         
         # --- SECTION F: Notes Input ---
         st.markdown('<div class="section-header">Analyst Notes</div>', unsafe_allow_html=True)
-        st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-        user_notes = st.text_area("Add extra detail about this request:", placeholder="Enter any specific contextual notes here...", label_visibility="collapsed")
-        if st.button("💾 Save Note", type="primary"):
-            st.success("✓ Note saved to session.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            user_notes = st.text_area("Add extra detail about this request:", placeholder="Enter any specific contextual notes here...", label_visibility="collapsed")
+            if st.button("💾 Save Note", type="primary"):
+                st.success("✓ Note saved to session.")
         
         # --- DOWNLOAD BUTTONS ---
         st.markdown('<div class="section-header">Export Report</div>', unsafe_allow_html=True)
         
-        dl_col1, dl_col2, dl_col3 = st.columns([1, 1, 2])
+        # Fixed overflow by using 2 equal-width columns for export buttons
+        dl_col1, dl_col2 = st.columns(2)
         with dl_col1:
             try:
                 pdf_data = generate_pdf(decision, selected_request)
