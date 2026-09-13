@@ -19,21 +19,35 @@ class SecureDataLoader:
         return data
 
     def get_user_requests(self, security_context: SecurityContext) -> list:
-        df = self.data.get('requests')
-        if df is None or df.empty:
-            return []
+        df_reqs = self.data.get('requests')
+        df_samples = self.data.get('sample_requests')
         
+        all_reqs = []
         user_id = security_context.dataset_user_id
-        return df[df['user_id'] == user_id]['request_id'].tolist()
+        
+        if df_reqs is not None and not df_reqs.empty:
+            all_reqs.extend(df_reqs[df_reqs['user_id'] == user_id]['request_id'].tolist())
+            
+        if df_samples is not None and not df_samples.empty:
+            all_reqs.extend(df_samples[df_samples['user_id'] == user_id]['request_id'].tolist())
+            
+        return all_reqs
 
     def get_request_context(self, request_id: str, security_context: SecurityContext):
-        df_req = self.data['requests']
-        req_row = df_req[df_req['request_id'] == request_id.strip()]
+        req_id_clean = request_id.strip()
         
-        if req_row.empty:
-            raise PermissionError("Resource not found or access denied.")
+        # Search in requests.csv first, then sample_requests.csv
+        df_req = self.data.get('requests')
+        req_row_df = df_req[df_req['request_id'] == req_id_clean] if df_req is not None else pd.DataFrame()
+        
+        if req_row_df.empty:
+            df_sample = self.data.get('sample_requests')
+            req_row_df = df_sample[df_sample['request_id'] == req_id_clean] if df_sample is not None else pd.DataFrame()
             
-        req_row = req_row.iloc[0]
+        if req_row_df.empty:
+            raise KeyError(f"Request {req_id_clean} not found in any dataset.")
+            
+        req_row = req_row_df.iloc[0]
         security_context.verify_ownership(req_row['user_id'])
         
         user_id = security_context.dataset_user_id

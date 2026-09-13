@@ -251,32 +251,33 @@ def run_backend(req_row, prof_row, events_df, opts_df, messages_df, images_df, r
     event_objs = [parse_event(r) for _, r in events_df.iterrows()]
     payment_opts = [parse_payment_option(r) for _, r in opts_df.iterrows()]
     
+    resolver = ConflictResolver()
+    state_layer = FinancialStateLayer(rates_df)
+    
     try:
-        facts = llm_provider.extract_facts(req_obj.request_text, messages_df, images_df)
+        image_dir = os.path.join(root_dir, 'dataset', 'media', 'images')
+        extracted_facts = llm_provider.extract_facts(req_obj.request_id, messages_df, images_df, events_df, image_dir)
     except Exception as e:
         print(f"LLM extraction error safely handled: {e}")
-        facts = []
+        extracted_facts = []
         
-    resolver = ConflictResolver(facts)
-    resolved_facts = resolver.resolve()
+    resolved_events = resolver.resolve(event_objs, extracted_facts)
+    current_state = state_layer.reconstruct(resolved_events, req_obj, prof_obj)
     
-    state_layer = FinancialStateLayer(prof_obj, event_objs, resolved_facts, rates_df)
-    state = state_layer.reconstruct_state(req_obj.request_date)
-    
-    simulator = Simulator(state, prof_obj, rates_df)
+    simulator = Simulator(prof_obj, current_state)
     solver = Solver(simulator, req_obj, payment_opts)
     
     candidates, amt_safe, earliest_full = solver.generate_candidate_plans()
     
-    optimizer = Optimizer(candidates, prof_obj, req_obj)
-    best_plan = optimizer.select_best_plan()
+    optimizer = Optimizer(prof_obj, req_obj)
+    best_plan = optimizer.rank_plans(candidates)
     
-    verifier = Verifier(state, prof_obj, rates_df)
+    verifier = Verifier(simulator, req_obj)
     
     output_row = {
         'request_id': req_obj.request_id,
         'amount_safe_to_pay': str(amt_safe),
-        'earliest_date_for_full_payment': earliest_full,
+        'earliest_date_for_full_payment': earliest_full if earliest_full else "",
         'spending_changes_needed': "none"
     }
     
@@ -284,34 +285,42 @@ def run_backend(req_row, prof_row, events_df, opts_df, messages_df, images_df, r
         output_row['affordability_status'] = "not_affordable"
         output_row['recommended_payment_method'] = "not_recommended"
         output_row['payment_plan'] = "none"
-        is_verified = True
+        is_verified = verifier.verify(output_row, best_plan)
         _, _, history = simulator.simulate(req_obj.request_date, {}, [], return_timeline=True)
     else:
-        if best_plan['method'] == 'full_payment':
-            output_row['affordability_status'] = "affordable_now" if amt_safe == req_obj.requested_amount else "affordable_later"
+        out_method = best_plan['method']
+        out_plan = best_plan['plan_string']
+        
+        sc_changes = best_plan.get('spending_changes', [])
+        if sc_changes:
+            sc_strs = []
+            for change in sc_changes:
+                if change['type'] == 'stop':
+                    sc_strs.append(f"stop:{change['target_event_id']}")
+                else:
+                    sc_strs.append(f"reduce_to:{change['target_event_id']}:{change['new_amount']}")
+            output_row['spending_changes_needed'] = "|".join(sc_strs)
+            
+        if out_method == "full_payment":
+            output_row['affordability_status'] = "affordable_now"
+        elif out_method == "wait":
+            output_row['affordability_status'] = "affordable_later"
         else:
             output_row['affordability_status'] = "affordable_with_plan"
             
-        output_row['recommended_payment_method'] = best_plan['method']
+        output_row['recommended_payment_method'] = out_method
+        output_row['payment_plan'] = out_plan
         
-        if not best_plan['plan']:
-            output_row['payment_plan'] = "none"
-        else:
-            plan_strs = [f"{d.isoformat()}:{amt}" for d, amt in sorted(best_plan['plan'].items())]
-            output_row['payment_plan'] = "|".join(plan_strs)
-            
-        if not best_plan['spending_changes']:
-            output_row['spending_changes_needed'] = "none"
-        else:
-            sc_strs = []
-            for sc in best_plan['spending_changes']:
-                if sc['type'] == 'stop':
-                    sc_strs.append(f"stop:{sc['target_event_id']}")
-                else:
-                    sc_strs.append(f"reduce_to:{sc['target_event_id']}:{sc['new_amount']}")
-            output_row['spending_changes_needed'] = "|".join(sc_strs)
-            
-        is_verified = verifier.verify(req_obj, best_plan, amt_safe)
+        # Build the exact plan dict for Simulator
+        plan_dict = {}
+        if out_plan and out_plan != 'none':
+            for entry in out_plan.split('|'):
+                parts = entry.split(':')
+                if len(parts) == 2:
+                    plan_dict[datetime.strptime(parts[0], '%Y-%m-%d').date()] = Decimal(parts[1])
+                    
+        is_verified = verifier.verify(output_row, best_plan)
+        
         if not is_verified:
             output_row['affordability_status'] = "not_affordable"
             output_row['recommended_payment_method'] = "not_recommended"
@@ -319,7 +328,7 @@ def run_backend(req_row, prof_row, events_df, opts_df, messages_df, images_df, r
             output_row['spending_changes_needed'] = "none"
             _, _, history = simulator.simulate(req_obj.request_date, {}, [], return_timeline=True)
         else:
-            _, _, history = simulator.simulate(req_obj.request_date, best_plan['plan'], best_plan['spending_changes'], return_timeline=True)
+            _, _, history = simulator.simulate(req_obj.request_date, plan_dict, sc_changes, return_timeline=True)
             
     # Generic explanation
     if output_row['affordability_status'] == 'not_affordable':
