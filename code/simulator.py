@@ -8,7 +8,7 @@ class Simulator:
         self.profile = profile
         self.state = state
         
-    def simulate(self, start_date: date, payment_plan: Dict[date, Decimal], spending_changes: List[Dict[str, Any]] = None) -> Tuple[bool, Decimal]:
+    def simulate(self, start_date: date, payment_plan: Dict[date, Decimal], spending_changes: List[Dict[str, Any]] = None, return_timeline: bool = False) -> Tuple[bool, Decimal]:
         if spending_changes is None:
             spending_changes = []
             
@@ -52,13 +52,18 @@ class Simulator:
                 else:
                     timeline[evt.event_date] -= evt.amount
                     
+        history = []
         for i in range(91):
             curr_date = start_date + timedelta(days=i)
             current_balance += timeline[curr_date]
+            history.append({"date": curr_date, "balance": current_balance})
+            
             if current_balance < lowest_balance:
                 lowest_balance = current_balance
             
             if current_balance < min_required:
+                if return_timeline: return False, lowest_balance, history
                 return False, lowest_balance
                 
+        if return_timeline: return True, lowest_balance, history
         return True, lowest_balance

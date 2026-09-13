@@ -12,9 +12,11 @@ class LLMProvider:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.client = genai.Client(api_key=api_key)
-        self.model_name = 'gemini-1.5-flash'
+        self.model_name = 'gemini-2.5-flash'
         self.cache_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.llm_cache.json')
+        self.usage_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'token_usage.json')
         self._cache = self._load_cache()
+        self._usage = self._load_usage()
 
     def _load_cache(self):
         if os.path.exists(self.cache_file):
@@ -22,13 +24,24 @@ class LLMProvider:
                 with open(self.cache_file, 'r') as f:
                     return json.load(f)
             except Exception:
-                return {}
+                pass
         return {}
+        
+    def _load_usage(self):
+        if os.path.exists(self.usage_file):
+            try:
+                with open(self.usage_file, 'r') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {'prompt_tokens': 0, 'candidates_tokens': 0, 'total_tokens': 0, 'api_calls': 0}
 
     def _save_cache(self):
         try:
             with open(self.cache_file, 'w') as f:
                 json.dump(self._cache, f)
+            with open(self.usage_file, 'w') as f:
+                json.dump(self._usage, f)
         except Exception:
             pass
         
@@ -124,7 +137,7 @@ Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
         facts = []
         try:
             response = self.client.models.generate_content(
-                model='gemini-1.5-flash',
+                model=self.model_name,
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
@@ -151,6 +164,11 @@ Output ONLY a JSON array, e.g., [{"fact_id":...}] or [] if no facts.
                     )
                 ))
             
+            if response.usage_metadata:
+                self._usage['prompt_tokens'] += getattr(response.usage_metadata, 'prompt_token_count', 0) or 0
+                self._usage['candidates_tokens'] += getattr(response.usage_metadata, 'candidates_token_count', 0) or 0
+                self._usage['total_tokens'] += getattr(response.usage_metadata, 'total_token_count', 0) or 0
+                self._usage['api_calls'] += 1
             
             json_facts = []
             for f in facts:

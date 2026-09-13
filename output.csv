@@ -3,7 +3,7 @@ request_26,15656000,affordable_now,full_payment,2025-08-03:15656000,2025-08-03,n
 request_27,6670,affordable_now,full_payment,2026-07-05:6670,2026-07-05,none,Deterministic calculation selected full_payment.
 request_28,369.6,affordable_later,wait,2024-08-13:1302.4,2024-08-13,none,Deterministic calculation selected wait.
 request_29,51524,affordable_now,full_payment,2025-11-04:51524,2025-11-04,none,Deterministic calculation selected full_payment.
-request_30,685.52,not_affordable,not_recommended,none,,none,Deterministic calculation selected not_recommended.
+request_30,685.52,affordable_with_plan,installments,2026-04-06:268.74|2026-05-06:268.74|2026-06-05:268.74,,stop:event_2694|reduce_to:event_2731:28.0,Deterministic calculation selected installments.
 request_31,10667244.34,affordable_later,wait,2024-09-14:18164000,2024-09-14,none,Deterministic calculation selected wait.
 request_32,17511.22,not_affordable,not_recommended,none,2025-04-18,none,Deterministic calculation selected not_recommended.
 request_33,51617.8,affordable_later,wait,2026-03-15:118000,2026-03-15,none,Deterministic calculation selected wait.
@@ -83,7 +83,7 @@ request_106,389.3,not_affordable,not_recommended,none,2025-02-16,none,Determinis
 request_107,0,not_affordable,not_recommended,none,,none,Deterministic calculation selected not_recommended.
 request_108,1832,not_affordable,not_recommended,none,,none,Deterministic calculation selected not_recommended.
 request_109,617.86,affordable_with_plan,installments,2024-03-18:645.98|2024-04-18:645.98|2024-05-19:645.98,2024-03-15,none,Deterministic calculation selected installments.
-request_110,20899.02,not_affordable,not_recommended,none,,none,Deterministic calculation selected not_recommended.
+request_110,20899.02,affordable_with_plan,installments,2025-08-06:7748.69|2025-09-03:7748.69|2025-10-01:7748.69,,stop:event_10197|stop:event_10198|reduce_to:event_10199:193.6,Deterministic calculation selected installments.
 request_111,16625000,affordable_now,full_payment,2026-04-03:16625000,2026-04-03,none,Deterministic calculation selected full_payment.
 request_112,271.7,affordable_now,full_payment,2024-06-05:271.7,2024-06-05,none,Deterministic calculation selected full_payment.
 request_113,9039.01,not_affordable,not_recommended,none,2026-11-13,none,Deterministic calculation selected not_recommended.
@@ -189,7 +189,7 @@ request_212,5300119.02,not_affordable,not_recommended,none,,none,Deterministic c
 request_213,3362.4,affordable_with_plan,installments,2026-01-21:1165.63|2026-02-20:1165.63|2026-03-22:1165.63,2026-01-07,none,Deterministic calculation selected installments.
 request_214,30719.38,affordable_with_plan,partial_payment,2024-12-04:30719.38|2024-12-16:39030.62,2024-12-16,none,Deterministic calculation selected partial_payment.
 request_215,29986,affordable_with_plan,installments,2025-05-09:10395.15|2025-06-06:10395.15|2025-07-04:10395.15,2025-05-06,none,Deterministic calculation selected installments.
-request_216,442.06,not_affordable,not_recommended,none,,none,Deterministic calculation selected not_recommended.
+request_216,442.06,affordable_later,wait,2026-09-13:3332.4,,stop:event_19898|reduce_to:event_19935:44.0,Deterministic calculation selected wait.
 request_217,18179.46,affordable_with_plan,installments,2024-03-19:12889.07|2024-04-19:12889.07|2024-05-20:12889.07,2024-03-15,none,Deterministic calculation selected installments.
 request_218,32215260.12,affordable_with_plan,installments,2025-08-07:21195893.33|2025-09-04:21195893.33|2025-10-02:21195893.33,2025-08-14,none,Deterministic calculation selected installments.
 request_219,1294.1,affordable_with_plan,installments,2026-04-07:580.01|2026-05-07:580.01|2026-06-06:580.01,2026-05-14,none,Deterministic calculation selected installments.

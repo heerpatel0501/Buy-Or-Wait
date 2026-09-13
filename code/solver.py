@@ -18,25 +18,36 @@ class Solver:
         
         profile = self.simulator.profile
         state = self.simulator.state
-        possible_changes = [[]]
-        
-        flex_stop = profile.expense_categories_user_is_willing_to_stop
-        flex_reduce = profile.expense_categories_user_is_willing_to_reduce
+        import itertools
+        possible_changes = [[]] # No changes
         
         single_changes = []
+        flex_reduce = profile.expense_categories_user_is_willing_to_reduce
+        flex_stop = profile.expense_categories_user_is_willing_to_stop
+        
         for exp in state['recurring_expenses']:
-            flex = exp['flexibility'].lower()
-            # BUG 2 FIX: Check exact literal matches from the CSV
+            flex = exp['flexibility']
             can_stop = (flex in ['stoppable', 'reducible_or_stoppable'])
             can_reduce = (flex in ['reducible', 'reducible_or_stoppable'])
             
-            if can_stop and exp['category'] in flex_stop:
-                single_changes.append([{'type': 'stop', 'target_event_id': exp['last_event_id']}])
+            # Use lower() and strip() just in case
+            cat = str(exp['category']).strip().lower()
+            flex_stop_clean = [c.strip().lower() for c in flex_stop]
+            flex_reduce_clean = [c.strip().lower() for c in flex_reduce]
+            
+            if can_stop and cat in flex_stop_clean:
+                single_changes.append({'type': 'stop', 'target_event_id': exp['last_event_id']})
                 
-            if can_reduce and exp['category'] in flex_reduce and exp['minimum_allowed_amount'] is not None:
-                single_changes.append([{'type': 'reduce_to', 'target_event_id': exp['last_event_id'], 'new_amount': exp['minimum_allowed_amount']}])
+            if can_reduce and cat in flex_reduce_clean and exp['minimum_allowed_amount'] is not None:
+                single_changes.append({'type': 'reduce_to', 'target_event_id': exp['last_event_id'], 'new_amount': exp['minimum_allowed_amount']})
                     
-        possible_changes.extend(single_changes)
+        # Generate combinations of up to 3 changes
+        for i in range(1, min(4, len(single_changes) + 1)):
+            for combo in itertools.combinations(single_changes, i):
+                # Ensure no duplicate targets in the same combo
+                targets = [c['target_event_id'] for c in combo]
+                if len(targets) == len(set(targets)):
+                    possible_changes.append(list(combo))
         
         for sc in possible_changes:
             if "full_payment" in profile.payment_methods_user_will_consider:
