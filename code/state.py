@@ -61,6 +61,8 @@ class FinancialStateLayer:
         explicit_future = []
         for e in future_events:
             if e.status in ['scheduled', 'pending', 'confirmed']:
+                if e.status == 'pending' and e.direction == 'credit':
+                    continue  # BUG 4 FIX: Ignore pending credits
                 converted_amt = self._convert(e.amount, e.currency, profile.home_currency, e.settlement_date or e.event_date)
                 e.amount = converted_amt
                 e.currency = profile.home_currency
@@ -88,11 +90,11 @@ class FinancialStateLayer:
         if amount is None or amount == Decimal('0.0'): return Decimal('0.0')
         if from_currency == to_currency: return amount
         if self.exchange_rates_df is None or self.exchange_rates_df.empty:
-            return amount
+            raise ValueError(f"Missing exchange rate for {from_currency} to {to_currency} on {rate_date}")
         rates = self.exchange_rates_df
         rd_str = rate_date.strftime('%Y-%m-%d')
         match = rates[(rates['rate_date'] == rd_str) & (rates['from_currency'] == from_currency) & (rates['to_currency'] == to_currency)]
         if not match.empty:
             rate = Decimal(str(match.iloc[0]['rate']))
             return amount * rate
-        return amount
+        raise ValueError(f"Missing exchange rate for {from_currency} to {to_currency} on {rd_str}")

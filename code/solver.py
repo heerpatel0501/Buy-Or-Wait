@@ -11,10 +11,7 @@ class Solver:
         self.payment_options = payment_options
         
     def generate_candidate_plans(self) -> Tuple[List[Dict[str, Any]], Decimal, str]:
-        # 1. Base max safe without spending changes (amount_safe_to_pay)
         amount_safe = self._find_amount_safe(spending_changes=[])
-        
-        # 2. Base earliest full date without spending changes
         earliest_full_date = self._find_earliest_full(spending_changes=[])
         
         candidates = []
@@ -28,16 +25,20 @@ class Solver:
         
         single_changes = []
         for exp in state['recurring_expenses']:
-            if exp['flexibility'] == 'flexible':
-                if exp['category'] in flex_stop:
-                    single_changes.append([{'type': 'stop', 'target_event_id': exp['last_event_id']}])
-                if exp['category'] in flex_reduce and exp['minimum_allowed_amount'] is not None:
-                    single_changes.append([{'type': 'reduce_to', 'target_event_id': exp['last_event_id'], 'new_amount': exp['minimum_allowed_amount']}])
+            flex = exp['flexibility'].lower()
+            # BUG 2 FIX: Check exact literal matches from the CSV
+            can_stop = (flex in ['stoppable', 'reducible_or_stoppable'])
+            can_reduce = (flex in ['reducible', 'reducible_or_stoppable'])
+            
+            if can_stop and exp['category'] in flex_stop:
+                single_changes.append([{'type': 'stop', 'target_event_id': exp['last_event_id']}])
+                
+            if can_reduce and exp['category'] in flex_reduce and exp['minimum_allowed_amount'] is not None:
+                single_changes.append([{'type': 'reduce_to', 'target_event_id': exp['last_event_id'], 'new_amount': exp['minimum_allowed_amount']}])
                     
         possible_changes.extend(single_changes)
         
         for sc in possible_changes:
-            # Full
             if "full_payment" in profile.payment_methods_user_will_consider:
                 is_full, _ = self.simulator.simulate(self.request.request_date, {self.request.request_date: self.request.requested_amount}, sc)
                 if is_full:
@@ -49,7 +50,6 @@ class Solver:
                         "option_id": None
                     })
                     
-            # Partial
             if "partial_payment" in profile.payment_methods_user_will_consider and self.request.allows_partial_payment:
                 if amount_safe > 0 and amount_safe < self.request.requested_amount:
                     e_date = earliest_full_date
@@ -71,7 +71,6 @@ class Solver:
                                     "option_id": None
                                 })
                                 
-            # Installments
             if "installments" in profile.payment_methods_user_will_consider:
                 for opt in self.payment_options:
                     if opt.payment_method == "installments":
@@ -80,7 +79,7 @@ class Solver:
                             p_date = opt.first_payment_date + timedelta(days=i * (opt.payment_frequency_days or 30))
                             plan[p_date] = opt.payment_amount
                         is_inst, _ = self.simulator.simulate(self.request.request_date, plan, sc)
-                        last_date = max(plan.keys())
+                        last_date = max(plan.keys()) if plan else self.request.request_date
                         if is_inst and last_date <= self.request.desired_completion_date:
                             candidates.append({
                                 "method": "installments",
@@ -90,8 +89,7 @@ class Solver:
                                 "option_id": opt.payment_option_id
                             })
                             
-            # Wait
-            if "full_payment" in profile.payment_methods_user_will_consider:
+            if "wait" in profile.payment_methods_user_will_consider or "full_payment" in profile.payment_methods_user_will_consider:
                 e_date = self._find_earliest_full(sc)
                 if e_date:
                     ed = date.fromisoformat(e_date)

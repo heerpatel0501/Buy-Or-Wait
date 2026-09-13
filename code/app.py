@@ -67,47 +67,77 @@ def run_deterministic_engine(req_row, prof_row, events_df, opts_df, messages_df,
     resolved_events = resolver.resolve(raw_events, extracted_facts)
     
     state_layer = FinancialStateLayer()
-    current_state = state_layer.reconstruct(resolved_events, req_obj)
-    
-    simulator = Simulator(profile_obj, current_state)
-    solver = Solver(simulator, req_obj, payment_opts)
-    candidates, amount_safe, earliest_full = solver.generate_candidate_plans()
-    
-    optimizer = Optimizer(profile_obj)
-    best_plan = optimizer.rank_plans(candidates)
-    
-    if not best_plan:
-        out_status = "not_affordable"
-        out_method = "not_recommended"
-        out_plan = "none"
-    else:
-        out_method = best_plan['method']
-        out_plan = best_plan['plan_string']
-        if out_method == "full_payment":
-            out_status = "affordable_now"
-        elif out_method == "wait":
-            out_status = "affordable_later"
+    try:
+        current_state = state_layer.reconstruct(resolved_events, req_obj, profile_obj)
+        
+        simulator = Simulator(profile_obj, current_state)
+        solver = Solver(simulator, req_obj, payment_opts)
+        candidates, amount_safe, earliest_full = solver.generate_candidate_plans()
+        
+        optimizer = Optimizer(profile_obj, req_obj)
+        best_plan = optimizer.rank_plans(candidates)
+        
+        if not best_plan:
+            out_status = "not_affordable"
+            out_method = "not_recommended"
+            out_plan = "none"
+            sc_needed = "none"
         else:
-            out_status = "affordable_with_plan"
+            out_method = best_plan['method']
+            out_plan = best_plan['plan_string']
             
-    output_row = {
-        'request_id': req_obj.request_id,
-        'amount_safe_to_pay': str(amount_safe),
-        'affordability_status': out_status,
-        'recommended_payment_method': out_method,
-        'payment_plan': out_plan,
-        'earliest_date_for_full_payment': earliest_full if earliest_full else "",
-        'spending_changes_needed': "none",
-        'decision_explanation': f"Deterministic constraint satisfaction resulted in {out_method}."
-    }
-    
-    verifier = Verifier(simulator, req_obj)
-    is_verified = verifier.verify(output_row)
-    
-    if not is_verified:
-        output_row['affordability_status'] = 'not_affordable'
-        output_row['recommended_payment_method'] = 'not_recommended'
-        output_row['payment_plan'] = 'none'
+            sc_changes = best_plan.get('spending_changes', [])
+            if sc_changes:
+                sc_strs = []
+                for change in sc_changes:
+                    if change['type'] == 'stop':
+                        sc_strs.append(f"stop:{change['target_event_id']}")
+                    else:
+                        sc_strs.append(f"reduce_to:{change['target_event_id']}:{change['new_amount']}")
+                sc_needed = "|".join(sc_strs)
+            else:
+                sc_needed = "none"
+                
+            if out_method == "full_payment":
+                out_status = "affordable_now"
+            elif out_method == "wait":
+                out_status = "affordable_later"
+            else:
+                out_status = "affordable_with_plan"
+                
+        safe_amt_str = f"{amount_safe:.2f}".rstrip('0').rstrip('.') if amount_safe is not None else "0"
+        output_row = {
+            'request_id': req_obj.request_id,
+            'amount_safe_to_pay': safe_amt_str,
+            'affordability_status': out_status,
+            'recommended_payment_method': out_method,
+            'payment_plan': out_plan,
+            'earliest_date_for_full_payment': earliest_full if earliest_full else "",
+            'spending_changes_needed': sc_needed,
+            'decision_explanation': f"Deterministic constraint satisfaction resulted in {out_method}."
+        }
+        
+        verifier = Verifier(simulator, req_obj)
+        is_verified = verifier.verify(output_row, best_plan)
+        
+        if not is_verified:
+            output_row['affordability_status'] = 'not_affordable'
+            output_row['recommended_payment_method'] = 'not_recommended'
+            output_row['payment_plan'] = 'none'
+            output_row['spending_changes_needed'] = 'none'
+            
+    except ValueError:
+        output_row = {
+            'request_id': req_obj.request_id,
+            'amount_safe_to_pay': "0",
+            'affordability_status': "not_affordable",
+            'recommended_payment_method': "not_recommended",
+            'payment_plan': "none",
+            'earliest_date_for_full_payment': "",
+            'spending_changes_needed': "none",
+            'decision_explanation': "Failed closed due to missing safe exchange rate conversion."
+        }
+        is_verified = False
         
     return output_row, is_verified
 

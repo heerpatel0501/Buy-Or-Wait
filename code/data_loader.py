@@ -16,14 +16,6 @@ class SecureDataLoader:
                 if 'user_id' in df.columns:
                     df['user_id'] = df['user_id'].astype(str).str.strip()
                 data[name] = df.fillna('')
-                
-        # Merge sample_requests into requests if they exist, so we can run ALL requests
-        if 'sample_requests' in data:
-            if 'requests' in data:
-                data['requests'] = pd.concat([data['requests'], data['sample_requests']], ignore_index=True)
-            else:
-                data['requests'] = data['sample_requests']
-                
         return data
 
     def get_user_requests(self, security_context: SecurityContext) -> list:

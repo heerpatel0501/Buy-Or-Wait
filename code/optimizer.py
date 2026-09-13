@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 from code.models import FinancialProfile, Request
+from decimal import Decimal
 
 class Optimizer:
     def __init__(self, profile: FinancialProfile, request: Request):
@@ -11,35 +12,24 @@ class Optimizer:
             return None
             
         def rank_key(c):
-            # 1. Complete by desired_completion_date
-            last_date = max(c['plan'].keys())
+            last_date = max(c['plan'].keys()) if c['plan'] else self.request.request_date
             c1 = last_date <= self.request.desired_completion_date
-            
-            # 2. No spending changes
             c2 = len(c['spending_changes']) == 0
-            
-            # 3. Minimize total amount paid
             c3 = c['total_paid']
-            
-            # 4. Earliest payment start
-            c4 = min(c['plan'].keys())
-            
-            # 5. Fewest payments
+            c4 = min(c['plan'].keys()) if c['plan'] else self.request.request_date
             c5 = len(c['plan'])
-            
-            # 6. Lowest payment_option_id
             opt = c['option_id'] or "Z"
-            
-            # False sorts before True, so we negate bools for "True is better"
             return (not c1, not c2, c3, c4, c5, opt)
             
         ranked = sorted(candidates, key=rank_key)
         best = ranked[0]
         
-        # Serialize plan
         plan_strs = []
         for d in sorted(best['plan'].keys()):
-            plan_strs.append(f"{d.isoformat()}:{best['plan'][d]}")
+            # BUG 7: Normalize formatting consistently
+            amt = best['plan'][d]
+            amt_str = f"{amt:.2f}".rstrip('0').rstrip('.')
+            plan_strs.append(f"{d.isoformat()}:{amt_str}")
         best['plan_string'] = "|".join(plan_strs)
         
         return best
