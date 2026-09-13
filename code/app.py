@@ -130,69 +130,95 @@ def inject_custom_css():
         .stApp {{
             background-color: {bg};
             color: {text};
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }}
+        
+        /* Reduce Top Padding of Streamlit App */
+        .block-container {{
+            padding-top: 1.5rem !important;
+            padding-bottom: 2rem !important;
+            max-width: 1200px;
         }}
         
         /* Hide Default Header elements */
-        [data-testid="stHeader"] {{ display: none; }}
+        [data-testid='stHeader'] {{ display: none; }}
         #MainMenu {{ visibility: hidden; }}
         footer {{ visibility: hidden; }}
+        
+        /* High Contrast Form Inputs (Text Area & Search) */
+        div[data-baseweb='textarea'] textarea,
+        div[data-baseweb='input'] input {{
+            color: {text} !important;
+            background-color: {card_bg} !important;
+            -webkit-text-fill-color: {text} !important;
+        }}
+        div[data-baseweb='textarea']:focus-within,
+        div[data-baseweb='input']:focus-within {{
+            border-color: #3B82F6 !important;
+            box-shadow: 0 0 0 1px #3B82F6 !important;
+        }}
         
         /* SYSTEMIC BUTTON CLASSES (Navy/Gold Theme) */
         
         /* Primary Buttons (Login, Save Note) */
-        div[data-testid="stButton"] button[kind="primary"],
-        div[data-testid="stFormSubmitButton"] button {{
+        div[data-testid='stButton'] button[kind='primary'],
+        div[data-testid='stFormSubmitButton'] button {{
             background-color: #D4AF37 !important; /* Gold */
             border-color: #D4AF37 !important;
+            border-radius: 8px !important;
         }}
-        div[data-testid="stButton"] button[kind="primary"] p,
-        div[data-testid="stFormSubmitButton"] button p {{
+        div[data-testid='stButton'] button[kind='primary'] p,
+        div[data-testid='stFormSubmitButton'] button p {{
             color: #0F172A !important; /* Navy */
             font-weight: 700 !important;
         }}
         
-        /* Secondary Buttons (Logout, Export, standard st.button) */
-        div[data-testid="stButton"] button[kind="secondary"],
-        div[data-testid="stDownloadButton"] button {{
+        /* Secondary Buttons & Popovers */
+        div[data-testid='stButton'] button[kind='secondary'],
+        div[data-testid='stDownloadButton'] button,
+        div[data-testid='stPopover'] button {{
             background-color: #1E293B !important; /* Navy */
             border-color: #334155 !important;
+            border-radius: 8px !important;
         }}
-        div[data-testid="stButton"] button[kind="secondary"] p,
-        div[data-testid="stDownloadButton"] button p {{
+        div[data-testid='stButton'] button[kind='secondary'] p,
+        div[data-testid='stDownloadButton'] button p,
+        div[data-testid='stPopover'] button p {{
             color: #F8FAFC !important; /* White */
-            font-weight: 500 !important;
+            font-weight: 600 !important;
         }}
         
         /* Hover states */
-        div[data-testid="stButton"] button[kind="primary"]:hover,
-        div[data-testid="stFormSubmitButton"] button:hover {{
+        div[data-testid='stButton'] button[kind='primary']:hover,
+        div[data-testid='stFormSubmitButton'] button:hover {{
             background-color: #FBBF24 !important;
             border-color: #FBBF24 !important;
         }}
-        div[data-testid="stButton"] button[kind="secondary"]:hover,
-        div[data-testid="stDownloadButton"] button:hover {{
+        div[data-testid='stButton'] button[kind='secondary']:hover,
+        div[data-testid='stDownloadButton'] button:hover,
+        div[data-testid='stPopover'] button:hover {{
             background-color: #334155 !important;
             border-color: #475569 !important;
         }}
         
         /* Streamlit Native Container Styling */
-        div[data-testid="stVerticalBlockBorderWrapper"] {{
-            border-radius: 12px;
-            background-color: {card_bg};
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            border: 1px solid {border};
-            padding: 8px; /* Inner padding for containers */
+        div[data-testid='stVerticalBlockBorderWrapper'] {{
+            border-radius: 12px !important;
+            background-color: {card_bg} !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+            border: 1px solid {border} !important;
+            padding: 12px !important;
+            margin-bottom: 0px !important;
         }}
         
-        /* HTML Card Styling for non-widget blocks */
+        /* HTML Card Styling */
         .safepay-card {{
             background: {card_bg};
             border-radius: 12px;
             padding: 24px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
             border: 1px solid {border};
-            margin-bottom: 24px;
+            margin-bottom: 16px;
         }}
         
         .dark-card {{
@@ -204,14 +230,15 @@ def inject_custom_css():
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }}
         
+        /* Adjust Spacing */
         .section-header {{
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
             color: {subtext};
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 16px;
-            margin-top: 32px;
+            margin-bottom: 8px;
+            margin-top: 24px;
             display: flex;
             align-items: center;
         }}
@@ -227,18 +254,17 @@ def inject_custom_css():
             background: {alert_bg};
             border: 1px solid {border};
         }}
-        .metric-label {{ font-size: 13px; color: {subtext}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}}
-        .metric-value {{ font-size: 28px; font-weight: 700; color: {text}; margin-top: 8px; }}
+        .metric-label {{ font-size: 12px; color: {subtext}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}}
+        .metric-value {{ font-size: 24px; font-weight: 700; color: {text}; margin-top: 4px; }}
         
         /* Top Bar Wrapper */
         .top-bar-wrapper {{
             border-bottom: 1px solid {border};
             padding-bottom: 16px;
-            margin-bottom: 32px;
-            padding-top: 16px;
+            margin-bottom: 16px;
         }}
         
-        hr {{ border-color: {border}; }}
+        hr {{ border-color: {border}; margin: 16px 0; }}
     </style>
     """, unsafe_allow_html=True)
 
