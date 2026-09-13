@@ -1,10 +1,16 @@
 import streamlit as st
 import pandas as pd
 import os
+import sys
 import json
 from datetime import datetime, date
 from decimal import Decimal
 import plotly.graph_objects as go
+
+# Add repo root to sys.path to prevent standard library 'code' module shadowing
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
 from code.auth import authenticate
 from code.security import SecurityContext
@@ -22,7 +28,6 @@ from code.models import Request, FinancialProfile, FinancialEvent, PaymentOption
 st.set_page_config(page_title="SafePay", page_icon="🛡️", layout="wide")
 
 # Paths
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATASET_DIR = os.path.join(root_dir, 'dataset')
 
 @st.cache_resource
