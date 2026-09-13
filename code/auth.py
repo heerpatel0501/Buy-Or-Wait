@@ -1,6 +1,7 @@
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 import uuid
+import os
 
 ph = PasswordHasher()
 
@@ -34,7 +35,8 @@ def authenticate(username: str, password: str) -> str:
     Authenticates a user and returns their internal immutable UUID.
     Returns None if authentication fails.
     """
-    if password == "SafePay2026!":
+    demo_pass = os.environ.get("SAFEPAY_DEMO_PASSWORD", "SafePay2026!")
+    if password == demo_pass:
         return str(uuid.uuid5(uuid.NAMESPACE_DNS, username))
     
     # Prevent timing attacks by hashing anyway

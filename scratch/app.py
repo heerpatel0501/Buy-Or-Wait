@@ -453,21 +453,13 @@ def main_dashboard():
             st.markdown("<br>", unsafe_allow_html=True)
             
             # Request Section
-            payment_options_list = "Full payment<br>"
-            if req_row['allows_partial_payment']:
-                payment_options_list += "Partial payment<br>"
-            for _, opt in opts_df.iterrows():
-                payment_options_list += f"{str(opt['payment_method']).replace('_', ' ').capitalize()}<br>"
-                
             st.markdown("""
             <div class="safepay-card">
                 <div class="card-title">Purchase request</div>
                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                     <div>
                         <h2 style="margin:0;">{req_name}</h2>
-                        <div style="color: #64748B; margin-top: 4px; margin-bottom: 16px;">Desired by {date}</div>
-                        <div style="color: #334155; font-size: 14px; font-weight: 600;">Available payment methods:</div>
-                        <div style="color: #64748B; font-size: 14px;">{opts}</div>
+                        <div style="color: #64748B; margin-top: 4px;">Desired by {date}</div>
                     </div>
                     <div style="text-align: right;">
                         <h2 style="margin:0; color: #0F172A;">{curr} {amt}</h2>
@@ -478,8 +470,7 @@ def main_dashboard():
             """.format(
                 req_name=req_row['request_type'].title(), 
                 date=req_row['desired_completion_date'] or "No deadline",
-                curr=currency, amt=req_row['requested_amount'],
-                opts=payment_options_list
+                curr=currency, amt=req_row['requested_amount']
             ), unsafe_allow_html=True)
             
             # Decision Card
