@@ -1,8 +1,8 @@
 from typing import List, Dict, Any, Tuple
 from decimal import Decimal
 from datetime import date, timedelta
-from models import Request, PaymentOption
-from simulator import Simulator
+from code.models import Request, PaymentOption
+from code.simulator import Simulator
 
 class Solver:
     def __init__(self, simulator: Simulator, request: Request, payment_options: List[PaymentOption]):

@@ -1,5 +1,5 @@
 from typing import List, Dict
-from models import FinancialEvent, ExtractedFact, Provenance
+from code.models import FinancialEvent, ExtractedFact, Provenance
 from datetime import datetime
 
 class ConflictResolver:

@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Tuple
-from models import FinancialEvent, Request, FinancialProfile
+from code.models import FinancialEvent, Request, FinancialProfile
 from decimal import Decimal
 from datetime import date, timedelta
 from collections import defaultdict

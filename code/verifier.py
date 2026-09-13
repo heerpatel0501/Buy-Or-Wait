@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 from decimal import Decimal
-from models import Request
-from simulator import Simulator
+from code.models import Request
+from code.simulator import Simulator
 
 class Verifier:
     def __init__(self, simulator: Simulator, request: Request):

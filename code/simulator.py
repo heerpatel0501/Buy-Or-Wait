@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Tuple
 from decimal import Decimal
 from datetime import date, timedelta
-from models import FinancialProfile
+from code.models import FinancialProfile
 
 class Simulator:
     def __init__(self, profile: FinancialProfile, state: Dict[str, Any]):

@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from models import FinancialProfile
+from code.models import FinancialProfile
 
 class Optimizer:
     def __init__(self, profile: FinancialProfile):

@@ -1,9 +1,15 @@
 import streamlit as st
 import pandas as pd
 import os
+import sys
 import time
 import hashlib
 from dotenv import load_dotenv
+
+# Ensure the root directory is in sys.path so 'code' is treated as our package
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
 # Import the secure deterministic engine
 from code.models import FinancialProfile, FinancialEvent, PaymentOption, Request

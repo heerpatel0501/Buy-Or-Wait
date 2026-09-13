@@ -4,7 +4,7 @@ import PIL.Image
 from typing import List, Dict, Any
 from google import genai
 from google.genai import types
-from models import ExtractedFact, Provenance
+from code.models import ExtractedFact, Provenance
 from decimal import Decimal
 from datetime import datetime
 
