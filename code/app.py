@@ -110,20 +110,18 @@ def generate_docx(data_dict, req_id):
 def inject_custom_css():
     theme = st.session_state.get('theme', 'light')
     if theme == 'dark':
-        bg = "#0F172A"          # Darker background
-        text = "#F8FAFC"        # High contrast white
-        card_bg = "#1E293B"     # Distinct card background
-        subtext = "#CBD5E1"     # High contrast gray
+        bg = "#0F172A"          
+        text = "#F8FAFC"        
+        card_bg = "#1E293B"     
+        subtext = "#CBD5E1"     
         border = "#334155"
-        rail_bg = "#020617"     # Very dark right rail
         alert_bg = "rgba(255,255,255,0.05)"
     else:
-        bg = "#F8FAFC"          # Very light gray/blue
-        text = "#0F172A"        # Near black text
-        card_bg = "#FFFFFF"     # White cards
-        subtext = "#475569"     # Darker gray for WCAG AA
+        bg = "#F8FAFC"          
+        text = "#0F172A"        
+        card_bg = "#FFFFFF"     
+        subtext = "#475569"     
         border = "#E2E8F0"
-        rail_bg = "#F1F5F9"     # Distinct rail background
         alert_bg = "rgba(0,0,0,0.02)"
 
     st.markdown(f"""
@@ -139,6 +137,17 @@ def inject_custom_css():
         [data-testid="stHeader"] {{ display: none; }}
         #MainMenu {{ visibility: hidden; }}
         footer {{ visibility: hidden; }}
+        
+        /* Fix Button Text Colors */
+        div[data-testid="stButton"] button p, 
+        div[data-testid="stDownloadButton"] button p {{
+            color: {text} !important;
+        }}
+        
+        div[data-testid="stButton"] button[kind="primary"] p,
+        div[data-testid="stFormSubmitButton"] button p {{
+            color: white !important;
+        }}
         
         /* Premium Card Styling */
         .safepay-card {{
@@ -159,15 +168,6 @@ def inject_custom_css():
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }}
         
-        .rail-container {{
-            background: {rail_bg};
-            border-radius: 12px;
-            padding: 24px;
-            border: 1px solid {border};
-            position: sticky;
-            top: 24px;
-        }}
-        
         .section-header {{
             font-size: 16px;
             font-weight: 700;
@@ -175,7 +175,7 @@ def inject_custom_css():
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 16px;
-            margin-top: 16px;
+            margin-top: 32px;
             display: flex;
             align-items: center;
         }}
@@ -194,11 +194,12 @@ def inject_custom_css():
         .metric-label {{ font-size: 13px; color: {subtext}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}}
         .metric-value {{ font-size: 28px; font-weight: 700; color: {text}; margin-top: 8px; }}
         
-        /* Download section */
-        .download-btn-container {{
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
+        /* Top Bar Wrapper */
+        .top-bar-wrapper {{
+            border-bottom: 1px solid {border};
+            padding-bottom: 16px;
+            margin-bottom: 32px;
+            padding-top: 16px;
         }}
         
         hr {{ border-color: {border}; }}
@@ -406,239 +407,236 @@ def main_dashboard():
     inject_custom_css()
     security_context = SecurityContext(uuid_val, dataset_user_id)
     
-    # 2-Column layout: Main Content (Scrollable) vs Right Rail (Fixed-ish)
-    main_col, rail_col = st.columns([3.5, 1], gap="large")
+    # ---------------------------------------------------------
+    # TOP BAR - SINGLE HORIZONTAL ROW
+    # ---------------------------------------------------------
+    st.markdown('<div class="top-bar-wrapper">', unsafe_allow_html=True)
+    tb1, tb2, tb3 = st.columns([2.5, 5, 4.5], vertical_alignment="center")
     
-    with rail_col:
-        st.markdown('<div class="rail-container">', unsafe_allow_html=True)
-        # Profile Section
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; margin-bottom: 24px;">
-            <div style="background: #3B82F6; color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; margin-right: 12px;">
-                {(dataset_user_id or 'U')[:2].upper()}
+    with tb1:
+        st.markdown("<h1 style='margin:0; padding:0; display:flex; align-items:center;'><span style='margin-right:8px;'>🏦</span> SafePay</h1>", unsafe_allow_html=True)
+        
+    with tb2:
+        st.text_input("Search", placeholder="Search transactions, requests...", label_visibility="collapsed")
+        
+    with tb3:
+        # Shared Container for Theme + Profile
+        # We simulate a "pill" by wrapping them closely in columns without extra borders
+        p1, p2, p3 = st.columns([1.5, 0.2, 3], vertical_alignment="center")
+        with p1:
+            theme_choice = st.selectbox("Theme", ["Light", "Dark"], index=0 if st.session_state.get('theme', 'light') == 'light' else 1, label_visibility="collapsed")
+            if theme_choice.lower() != st.session_state.get('theme', 'light'):
+                st.session_state['theme'] = theme_choice.lower()
+                st.rerun()
+        with p2:
+            st.markdown("<div style='border-left: 1px solid #94A3B8; height: 28px; margin: auto;'></div>", unsafe_allow_html=True)
+        with p3:
+            with st.popover(f"👤 {dataset_user_id} - Auth'd", use_container_width=True):
+                st.markdown(f"**Authenticated as {dataset_user_id}**")
+                st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
+                
+                is_demo_mode = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
+                if is_demo_mode:
+                    new_user = st.text_input("Switch User", placeholder="e.g. user_32")
+                    if st.button("Switch Session", use_container_width=True):
+                        if new_user:
+                            new_uuid = authenticate(new_user, os.environ.get("SAFEPAY_DEMO_PASSWORD", "password123"))
+                            if new_uuid:
+                                st.session_state['authenticated_uuid'] = new_uuid
+                                st.session_state['dataset_user_id'] = new_user
+                                st.rerun()
+                            else:
+                                st.error("Failed to switch")
+                    st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
+                    
+                if st.button("Logout", use_container_width=True):
+                    st.session_state.clear()
+                    st.rerun()
+                    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # ---------------------------------------------------------
+    # MAIN CONTENT
+    # ---------------------------------------------------------
+    user_requests = loader.get_user_requests(security_context)
+    if not user_requests:
+        st.markdown("""
+        <div style="text-align: center; padding: 100px 20px;">
+            <h2 style="margin-bottom: 8px;">No financial requests yet</h2>
+            <p style="font-size: 16px; max-width: 500px; margin: 0 auto;">Once a purchase request is available, SafePay will analyze whether you can safely afford it.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    # Request Selector
+    st.markdown("**Active Request Context**")
+    selected_request = st.selectbox("Active Request Context", user_requests, label_visibility="collapsed")
+    
+    try:
+        req_row, prof_row, events_df, opts_df, messages_df, images_df, rates_df = loader.get_request_context(selected_request, security_context)
+        
+        with st.spinner("Analyzing financial history and deterministic constraints..."):
+            decision, is_verified, history = run_deterministic_engine_cached(
+                req_row.to_dict(), prof_row.to_dict(), 
+                events_df.to_json(orient="records"), opts_df.to_json(orient="records"),
+                messages_df.to_json(orient="records"), images_df.to_json(orient="records"),
+                rates_df.to_json(orient="records")
+            )
+            
+        currency = prof_row['home_currency']
+        decision['is_verified'] = is_verified
+        
+        bal = float(prof_row['current_available_balance'])
+        min_bal = float(prof_row['minimum_balance_to_keep'])
+        buffer = max(0.0, bal - min_bal)
+        
+        # --- SECTION A: Top Summary Strip ---
+        st.markdown('<div class="section-header">Financial Summary</div>', unsafe_allow_html=True)
+        met1, met2, met3 = st.columns(3)
+        with met1:
+            st.markdown(f"""
+            <div class="metric-box">
+                <div class="metric-label">Current Balance</div>
+                <div class="metric-value">{currency} {bal:,.2f}</div>
             </div>
-            <div>
-                <div style="font-weight: 700; font-size: 16px;">{dataset_user_id}</div>
-                <div style="font-size: 12px; color: #64748B;">Authenticated</div>
+            """, unsafe_allow_html=True)
+        with met2:
+            st.markdown(f"""
+            <div class="metric-box">
+                <div class="metric-label">Minimum Required</div>
+                <div class="metric-value">{currency} {min_bal:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with met3:
+            st.markdown(f"""
+            <div class="metric-box">
+                <div class="metric-label">Available Buffer</div>
+                <div class="metric-value" style="color: {'#10B981' if buffer > 0 else '#EF4444'};">{currency} {buffer:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # --- SECTION B: Decision Result + Reasoning ---
+        st.markdown('<div class="section-header">Decision & Reasoning</div>', unsafe_allow_html=True)
+        
+        # Dynamic Left Border Color Logic
+        if decision['affordability_status'] == "affordable_now":
+            color_theme = "#10B981" # Green
+            status_text = "AFFORDABLE NOW"
+        elif decision['affordability_status'] in ["affordable_with_plan", "affordable_later"]:
+            color_theme = "#F59E0B" # Amber
+            status_text = "AFFORDABLE WITH PLAN" if decision['affordability_status'] == "affordable_with_plan" else "WAIT"
+        else:
+            color_theme = "#EF4444" # Red
+            status_text = "NOT AFFORDABLE"
+            
+        st.markdown(f"""
+        <div class="safepay-card" style="border-left: 6px solid {color_theme};">
+            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 24px;">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Recommendation</div>
+                    <div style="font-size: 28px; font-weight: 800; color: {color_theme}; margin-bottom: 12px; line-height: 1.2;">{status_text}</div>
+                    <div style="margin-bottom: 8px;"><strong style="color: #64748B;">Method:</strong> {decision['recommended_payment_method'].replace('_', ' ').title()}</div>
+                    <div><strong style="color: #64748B;">Safe to Pay:</strong> {currency} {decision['amount_safe_to_pay']}</div>
+                </div>
+                <div style="flex: 1.5; min-width: 300px; padding-left: 24px; border-left: 1px solid #E2E8F0;">
+                    <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Reasoning</div>
+                    <div style="font-size: 15px; line-height: 1.6;">{decision['decision_explanation']}</div>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("<hr>", unsafe_allow_html=True)
+        # --- SECTION C: 90-Day Forecast Chart ---
+        st.markdown('<div class="section-header">90-Day Forecast</div>', unsafe_allow_html=True)
+        st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
         
-        # Theme Toggle
-        theme_choice = st.selectbox("Theme", ["Light", "Dark"], index=0 if st.session_state.get('theme', 'light') == 'light' else 1)
-        if theme_choice.lower() != st.session_state.get('theme', 'light'):
-            st.session_state['theme'] = theme_choice.lower()
-            st.rerun()
+        if history:
+            df_hist = pd.DataFrame(history)
+            fig_hist = go.Figure()
+            fig_hist.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Projected Balance', line=dict(color="#3B82F6", width=3)))
+            fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="#EF4444", annotation_text="Minimum Allowed Balance", annotation_position="bottom right")
             
-        # Switch User (Security flag: DEMO_MODE)
-        is_demo_mode = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
-        if is_demo_mode:
-            st.markdown("<hr>", unsafe_allow_html=True)
-            st.markdown("**Switch User (Demo Only)**")
-            new_user = st.text_input("User ID", placeholder="e.g. user_32", label_visibility="collapsed")
-            if st.button("Switch", use_container_width=True):
-                if new_user:
-                    new_uuid = authenticate(new_user, os.environ.get("SAFEPAY_DEMO_PASSWORD", "password123"))
-                    if new_uuid:
-                        st.session_state['authenticated_uuid'] = new_uuid
-                        st.session_state['dataset_user_id'] = new_user
-                        st.rerun()
-                    else:
-                        st.error("Failed to switch")
-                        
-        st.markdown("<hr>", unsafe_allow_html=True)
-        if st.button("Logout", use_container_width=True):
-            st.session_state.clear()
-            st.rerun()
+            fig_hist.update_layout(
+                height=350, 
+                margin=dict(l=0, r=0, t=10, b=0),
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)"
+            )
+            st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("No forecast history available.")
             
         st.markdown('</div>', unsafe_allow_html=True)
         
-    with main_col:
-        # Top Bar
-        tb1, tb2 = st.columns([1, 1], vertical_alignment="center")
-        with tb1:
-            st.markdown("<h1>SafePay</h1>", unsafe_allow_html=True)
-        with tb2:
-            st.text_input("Search", placeholder="Search transactions, requests...", label_visibility="collapsed")
-            
-        st.markdown("<br>", unsafe_allow_html=True)
+        # --- SECTION D: Verification Proof + Timestamp ---
+        st.markdown('<div class="section-header">Verification Proof</div>', unsafe_allow_html=True)
         
-        user_requests = loader.get_user_requests(security_context)
-        if not user_requests:
-            st.markdown("""
-            <div style="text-align: center; padding: 100px 20px;">
-                <h2 style="margin-bottom: 8px;">No financial requests yet</h2>
-                <p style="font-size: 16px; max-width: 500px; margin: 0 auto;">Once a purchase request is available, SafePay will analyze whether you can safely afford it.</p>
-            </div>
-            """, unsafe_allow_html=True)
-            return
-
-        # Request Selector
-        st.markdown("**Active Request Context**")
-        selected_request = st.selectbox("Active Request Context", user_requests, label_visibility="collapsed")
+        if is_verified:
+            v_color = "#10B981"
+            v_text = "PASS"
+            v_icon = "✓"
+            v_detail = "The financial recommendation successfully passed all deterministic backend verification checks. Projected balance never breaches the minimum."
+        else:
+            v_color = "#EF4444"
+            v_text = "FAIL"
+            v_icon = "✗"
+            v_detail = "The backend verifier caught a safety condition and forced a rollback. Recommending 'Wait'."
+            
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        try:
-            req_row, prof_row, events_df, opts_df, messages_df, images_df, rates_df = loader.get_request_context(selected_request, security_context)
-            
-            with st.spinner("Analyzing financial history and deterministic constraints..."):
-                decision, is_verified, history = run_deterministic_engine_cached(
-                    req_row.to_dict(), prof_row.to_dict(), 
-                    events_df.to_json(orient="records"), opts_df.to_json(orient="records"),
-                    messages_df.to_json(orient="records"), images_df.to_json(orient="records"),
-                    rates_df.to_json(orient="records")
-                )
-                
-            currency = prof_row['home_currency']
-            decision['is_verified'] = is_verified
-            
-            bal = float(prof_row['current_available_balance'])
-            min_bal = float(prof_row['minimum_balance_to_keep'])
-            buffer = max(0.0, bal - min_bal)
-            
-            # --- SECTION A: Top Summary Strip ---
-            st.markdown('<div class="section-header">Financial Summary</div>', unsafe_allow_html=True)
-            met1, met2, met3 = st.columns(3)
-            with met1:
-                st.markdown(f"""
-                <div class="metric-box">
-                    <div class="metric-label">Current Balance</div>
-                    <div class="metric-value">{currency} {bal:,.2f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with met2:
-                st.markdown(f"""
-                <div class="metric-box">
-                    <div class="metric-label">Minimum Required</div>
-                    <div class="metric-value">{currency} {min_bal:,.2f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with met3:
-                st.markdown(f"""
-                <div class="metric-box">
-                    <div class="metric-label">Available Buffer</div>
-                    <div class="metric-value" style="color: {'#10B981' if buffer > 0 else '#EF4444'};">{currency} {buffer:,.2f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # --- SECTION B: Decision Result + Reasoning ---
-            st.markdown('<div class="section-header">Decision & Reasoning</div>', unsafe_allow_html=True)
-            
-            status_text = "AFFORDABLE" if decision['affordability_status'] in ["affordable_now", "affordable_with_plan"] else "NOT AFFORDABLE"
-            color_theme = "#F59E0B" if status_text == "AFFORDABLE" else "#EF4444"
-            
-            # Split decision block into Result and Reasoning side-by-side
-            st.markdown(f"""
-            <div class="safepay-card" style="border-left: 6px solid {color_theme};">
-                <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 24px;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Recommendation</div>
-                        <div style="font-size: 32px; font-weight: 800; color: {color_theme}; margin-bottom: 12px;">{status_text}</div>
-                        <div style="margin-bottom: 8px;"><strong style="color: #64748B;">Method:</strong> {decision['recommended_payment_method'].replace('_', ' ').title()}</div>
-                        <div><strong style="color: #64748B;">Safe to Pay:</strong> {currency} {decision['amount_safe_to_pay']}</div>
-                    </div>
-                    <div style="flex: 1.5; min-width: 300px; padding-left: 24px; border-left: 1px solid #E2E8F0;">
-                        <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Reasoning</div>
-                        <div style="font-size: 15px; line-height: 1.6;">{decision['decision_explanation']}</div>
-                    </div>
+        st.markdown(f"""
+        <div class="safepay-card">
+            <div style="display: flex; align-items: flex-start; gap: 16px;">
+                <div style="background: {v_color}; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px;">{v_icon} {v_text}</div>
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 4px;">Deterministic Checks Executed</div>
+                    <div style="font-size: 14px; color: #64748B; margin-bottom: 8px;">{v_detail}</div>
+                    <div style="font-size: 12px; color: #94A3B8;">Verified at: {now_str}</div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
-            
-            # --- SECTION C: 90-Day Forecast Chart ---
-            st.markdown('<div class="section-header">90-Day Forecast</div>', unsafe_allow_html=True)
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            
-            if history:
-                df_hist = pd.DataFrame(history)
-                fig_hist = go.Figure()
-                fig_hist.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Projected Balance', line=dict(color="#3B82F6", width=3)))
-                fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="#EF4444", annotation_text="Minimum Allowed Balance", annotation_position="bottom right")
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # --- SECTION E: User History ---
+        st.markdown('<div class="section-header">User History</div>', unsafe_allow_html=True)
+        st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+        if not events_df.empty:
+            display_df = events_df[['event_date', 'direction', 'amount', 'currency', 'category', 'description']].sort_values('event_date', ascending=False)
+            st.dataframe(display_df, use_container_width=True, height=250)
+        else:
+            st.info("No prior history found for this user.")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # --- SECTION F: Notes Input ---
+        st.markdown('<div class="section-header">Analyst Notes</div>', unsafe_allow_html=True)
+        st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+        user_notes = st.text_area("Add extra detail about this request:", placeholder="Enter any specific contextual notes here...", label_visibility="collapsed")
+        if st.button("💾 Save Note", type="primary"):
+            st.success("✓ Note saved to session.")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # --- DOWNLOAD BUTTONS ---
+        st.markdown('<div class="section-header">Export Report</div>', unsafe_allow_html=True)
+        
+        dl_col1, dl_col2, dl_col3 = st.columns([1, 1, 2])
+        with dl_col1:
+            try:
+                pdf_data = generate_pdf(decision, selected_request)
+                st.download_button("📄 Download PDF", data=pdf_data, file_name=f"{selected_request}_report.pdf", mime="application/pdf", use_container_width=True)
+            except Exception as e:
+                st.error("PDF generation failed.")
                 
-                fig_hist.update_layout(
-                    height=350, 
-                    margin=dict(l=0, r=0, t=10, b=0),
-                    paper_bgcolor="rgba(0,0,0,0)", 
-                    plot_bgcolor="rgba(0,0,0,0)"
-                )
-                # Remove floating camera icon
-                st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("No forecast history available.")
+        with dl_col2:
+            try:
+                docx_data = generate_docx(decision, selected_request)
+                st.download_button("📝 Download DOCX", data=docx_data, file_name=f"{selected_request}_report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            except Exception as e:
+                st.error("DOCX generation failed.")
                 
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # --- SECTION D: Verification Proof + Timestamp ---
-            st.markdown('<div class="section-header">Verification Proof</div>', unsafe_allow_html=True)
-            
-            if is_verified:
-                v_color = "#10B981"
-                v_text = "PASS"
-                v_icon = "✓"
-                v_detail = "The financial recommendation successfully passed all deterministic backend verification checks. Projected balance never breaches the minimum."
-            else:
-                v_color = "#EF4444"
-                v_text = "FAIL"
-                v_icon = "✗"
-                v_detail = "The backend verifier caught a safety condition and forced a rollback. Recommending 'Wait'."
-                
-            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
-            st.markdown(f"""
-            <div class="safepay-card">
-                <div style="display: flex; align-items: flex-start; gap: 16px;">
-                    <div style="background: {v_color}; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px;">{v_icon} {v_text}</div>
-                    <div>
-                        <div style="font-weight: 600; margin-bottom: 4px;">Deterministic Checks Executed</div>
-                        <div style="font-size: 14px; color: #64748B; margin-bottom: 8px;">{v_detail}</div>
-                        <div style="font-size: 12px; color: #94A3B8;">Verified at: {now_str}</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # --- SECTION E: User History ---
-            st.markdown('<div class="section-header">User History</div>', unsafe_allow_html=True)
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            # Compact view: sort by date descending
-            if not events_df.empty:
-                display_df = events_df[['event_date', 'direction', 'amount', 'currency', 'category', 'description']].sort_values('event_date', ascending=False)
-                st.dataframe(display_df, use_container_width=True, height=250)
-            else:
-                st.info("No prior history found for this user.")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # --- SECTION F: Notes Input ---
-            st.markdown('<div class="section-header">Analyst Notes</div>', unsafe_allow_html=True)
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            user_notes = st.text_area("Add extra detail about this request:", placeholder="Enter any specific contextual notes here...", label_visibility="collapsed")
-            if st.button("Save Note"):
-                st.success("Note saved to session.")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # --- DOWNLOAD BUTTONS ---
-            st.markdown('<div class="section-header">Export Report</div>', unsafe_allow_html=True)
-            
-            dl_col1, dl_col2 = st.columns([1, 1])
-            with dl_col1:
-                try:
-                    pdf_data = generate_pdf(decision, selected_request)
-                    st.download_button("⬇️ Download PDF Report", data=pdf_data, file_name=f"{selected_request}_report.pdf", mime="application/pdf", use_container_width=True)
-                except Exception as e:
-                    st.error("PDF generation failed.")
-                    
-            with dl_col2:
-                try:
-                    docx_data = generate_docx(decision, selected_request)
-                    st.download_button("⬇️ Download DOCX Report", data=docx_data, file_name=f"{selected_request}_report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
-                except Exception as e:
-                    st.error("DOCX generation failed.")
-                    
-        except PermissionError:
-            st.error("Access denied. Resource ownership violation.")
-        except Exception as e:
-            st.error(f"SafePay could not complete this analysis safely. Error: {e}")
+    except PermissionError:
+        st.error("Access denied. Resource ownership violation.")
+    except Exception as e:
+        st.error(f"SafePay could not complete this analysis safely. Error: {e}")
 
 if __name__ == "__main__":
     main_dashboard()
