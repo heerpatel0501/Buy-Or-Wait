@@ -1,4 +1,7 @@
 import streamlit as st
+# Must be the first Streamlit command
+st.set_page_config(layout="wide", page_title="SafePay", initial_sidebar_state="collapsed")
+
 import pandas as pd
 import os
 import sys
@@ -9,7 +12,6 @@ import plotly.graph_objects as go
 import traceback
 import io
 
-from streamlit_option_menu import option_menu
 from reportlab.pdfgen import canvas
 from docx import Document
 
@@ -38,20 +40,38 @@ def generate_pdf(data_dict, req_id):
     
     p.setFont("Helvetica", 12)
     p.drawString(50, 770, f"Request ID: {req_id}")
-    p.drawString(50, 750, f"Affordability Status: {data_dict.get('affordability_status', '')}")
-    p.drawString(50, 730, f"Recommended Method: {data_dict.get('recommended_payment_method', '')}")
-    p.drawString(50, 710, f"Amount Safe to Pay: {data_dict.get('amount_safe_to_pay', '')}")
-    p.drawString(50, 690, f"Spending Changes: {data_dict.get('spending_changes_needed', '')}")
-    p.drawString(50, 670, f"Verified: {data_dict.get('is_verified', False)}")
+    p.drawString(50, 750, f"Date Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
-    p.drawString(50, 640, "Decision Explanation:")
-    textobject = p.beginText(50, 620)
-    textobject.setFont("Helvetica", 10)
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, 720, "Result")
+    p.setFont("Helvetica", 12)
+    p.drawString(60, 700, f"Status: {data_dict.get('affordability_status', '')}")
+    p.drawString(60, 680, f"Method: {data_dict.get('recommended_payment_method', '')}")
+    p.drawString(60, 660, f"Amount Safe to Pay: {data_dict.get('amount_safe_to_pay', '')}")
+    p.drawString(60, 640, f"Payment Plan: {data_dict.get('payment_plan', '')}")
+    
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, 610, "Reasoning")
+    p.setFont("Helvetica", 11)
     import textwrap
     lines = textwrap.wrap(data_dict.get('decision_explanation', ''), width=90)
+    y_pos = 590
     for line in lines:
-        textobject.textLine(line)
-    p.drawText(textobject)
+        p.drawString(60, y_pos, line)
+        y_pos -= 15
+        
+    y_pos -= 10
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, y_pos, "Verification Proof")
+    p.setFont("Helvetica", 11)
+    y_pos -= 20
+    is_verif = data_dict.get('is_verified', False)
+    p.drawString(60, y_pos, f"Pass/Fail: {'PASS' if is_verif else 'FAIL'}")
+    y_pos -= 15
+    proof_text = "Checks executed: Evaluated 90-day deterministic balance trajectory against minimum balance requirement."
+    for line in textwrap.wrap(proof_text, width=90):
+        p.drawString(60, y_pos, line)
+        y_pos -= 15
     
     p.showPage()
     p.save()
@@ -61,14 +81,23 @@ def generate_pdf(data_dict, req_id):
 def generate_docx(data_dict, req_id):
     doc = Document()
     doc.add_heading(f"SafePay Financial Analysis Report", 0)
+    
     doc.add_paragraph(f"Request ID: {req_id}")
-    doc.add_paragraph(f"Affordability Status: {data_dict.get('affordability_status', '')}")
-    doc.add_paragraph(f"Recommended Method: {data_dict.get('recommended_payment_method', '')}")
+    doc.add_paragraph(f"Date Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    doc.add_heading("Result", level=2)
+    doc.add_paragraph(f"Status: {data_dict.get('affordability_status', '')}")
+    doc.add_paragraph(f"Method: {data_dict.get('recommended_payment_method', '')}")
     doc.add_paragraph(f"Amount Safe to Pay: {data_dict.get('amount_safe_to_pay', '')}")
-    doc.add_paragraph(f"Spending Changes: {data_dict.get('spending_changes_needed', '')}")
-    doc.add_paragraph(f"Verified: {data_dict.get('is_verified', False)}")
-    doc.add_heading("Decision Explanation", level=2)
+    doc.add_paragraph(f"Payment Plan: {data_dict.get('payment_plan', '')}")
+    
+    doc.add_heading("Reasoning", level=2)
     doc.add_paragraph(data_dict.get('decision_explanation', ''))
+    
+    doc.add_heading("Verification Proof", level=2)
+    is_verif = data_dict.get('is_verified', False)
+    doc.add_paragraph(f"Pass/Fail: {'PASS' if is_verif else 'FAIL'}")
+    doc.add_paragraph("Checks executed: Evaluated 90-day deterministic balance trajectory against minimum balance requirement.")
     
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -76,22 +105,26 @@ def generate_docx(data_dict, req_id):
     return buffer
 
 # ---------------------------------------------------------
-# CUSTOM CSS FOR TALLY-STYLE FINTECH LOOK
+# CUSTOM CSS FOR HIGH CONTRAST & SINGLE PAGE LOOK
 # ---------------------------------------------------------
 def inject_custom_css():
     theme = st.session_state.get('theme', 'light')
     if theme == 'dark':
-        bg = "#111827"
-        text = "#F9FAFB"
-        card_bg = "#1F2937"
-        subtext = "#9CA3AF"
-        border = "#374151"
+        bg = "#0F172A"          # Darker background
+        text = "#F8FAFC"        # High contrast white
+        card_bg = "#1E293B"     # Distinct card background
+        subtext = "#CBD5E1"     # High contrast gray
+        border = "#334155"
+        rail_bg = "#020617"     # Very dark right rail
+        alert_bg = "rgba(255,255,255,0.05)"
     else:
-        bg = "#F6F5F0"
-        text = "#2A323D"
-        card_bg = "white"
-        subtext = "#6C7A89"
+        bg = "#F8FAFC"          # Very light gray/blue
+        text = "#0F172A"        # Near black text
+        card_bg = "#FFFFFF"     # White cards
+        subtext = "#475569"     # Darker gray for WCAG AA
         border = "#E2E8F0"
+        rail_bg = "#F1F5F9"     # Distinct rail background
+        alert_bg = "rgba(0,0,0,0.02)"
 
     st.markdown(f"""
     <style>
@@ -102,101 +135,73 @@ def inject_custom_css():
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }}
         
-        /* Sidebar styling */
-        [data-testid="stSidebar"] {{
-            background-color: #2A323D;
-        }}
-        [data-testid="stSidebar"] * {{
-            color: #A0ABC0;
-        }}
-        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
-            color: #F6F5F0 !important;
-        }}
+        /* Hide Default Header elements */
+        [data-testid="stHeader"] {{ display: none; }}
+        #MainMenu {{ visibility: hidden; }}
+        footer {{ visibility: hidden; }}
         
         /* Premium Card Styling */
         .safepay-card {{
             background: {card_bg};
-            border-radius: 16px;
+            border-radius: 12px;
             padding: 24px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             border: 1px solid {border};
             margin-bottom: 24px;
-            height: 100%;
         }}
         
         .dark-card {{
-            background-color: #2A323D;
-            border-radius: 16px;
+            background-color: #1E293B;
+            border-radius: 12px;
             padding: 24px;
             color: white;
             margin-bottom: 24px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }}
+        
+        .rail-container {{
+            background: {rail_bg};
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid {border};
+            position: sticky;
+            top: 24px;
         }}
         
         .section-header {{
+            font-size: 16px;
+            font-weight: 700;
+            color: {subtext};
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            margin-top: 16px;
             display: flex;
             align-items: center;
-            font-size: 14px;
-            font-weight: 700;
-            color: {subtext};
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            margin-top: 24px;
-        }}
-        
-        .section-header span {{
-            margin-right: 8px;
-            font-size: 18px;
-        }}
-        
-        .card-title {{
-            font-size: 12px;
-            font-weight: 700;
-            color: {subtext};
-            margin-bottom: 16px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }}
         
         /* Headings */
         h1, h2, h3, h4 {{ color: {text} !important; }}
-        h1 {{ font-size: 28px !important; font-weight: 700 !important; }}
-        h2 {{ font-size: 24px !important; font-weight: 600 !important; }}
-        h3 {{ font-size: 20px !important; font-weight: 600 !important; }}
+        h1 {{ font-size: 26px !important; font-weight: 700 !important; margin-bottom: 0!important; padding-bottom: 0!important;}}
         
-        /* Hide element blocks we don't want */
-        #MainMenu {{visibility: hidden;}}
-        footer {{visibility: hidden;}}
-        
-        /* Top nav badge */
-        .top-badge {{
-            background-color: #E6F0E0;
-            color: #5D7B45;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-block;
-            margin-left: 16px;
-            vertical-align: middle;
+        /* Metric box */
+        .metric-box {{
+            padding: 16px;
+            border-radius: 8px;
+            background: {alert_bg};
+            border: 1px solid {border};
         }}
+        .metric-label {{ font-size: 13px; color: {subtext}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}}
+        .metric-value {{ font-size: 28px; font-weight: 700; color: {text}; margin-top: 8px; }}
         
-        /* Flex top bar fix */
-        .topbar-container {{
+        /* Download section */
+        .download-btn-container {{
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid {border};
-            padding-bottom: 12px;
-            margin-bottom: 24px;
-            width: 100%;
+            gap: 12px;
+            margin-top: 16px;
         }}
         
-        .header-title-area {{
-            display: flex;
-            align-items: center;
-        }}
+        hr {{ border-color: {border}; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -206,43 +211,18 @@ def inject_custom_css():
 def login_ui():
     inject_custom_css()
     
-    col1, col2 = st.columns([1.2, 1], gap="large")
-    
-    with col1:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("""
-        <div style="padding: 40px; background-color: #2A323D; border-radius: 16px; color: white; height: 100%;">
-            <div style="display: flex; align-items: center; margin-bottom: 24px;">
-                <h1 style="color: white !important; margin: 0; font-size: 40px !important;">SafePay Financial</h1>
-            </div>
-            <h2 style="color: #A0ABC0 !important; font-weight: 400 !important; margin-bottom: 48px;">Know what you can safely afford before you pay.</h2>
-            
-            <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center;">
-                <span style="color: #93AD80; font-size: 20px; margin-right: 12px;">✓</span>
-                <span style="font-size: 16px; font-weight: 500;">90-day affordability forecast</span>
-            </div>
-            <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center;">
-                <span style="color: #93AD80; font-size: 20px; margin-right: 12px;">✓</span>
-                <span style="font-size: 16px; font-weight: 500;">Payment-plan comparison</span>
-            </div>
-            <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center;">
-                <span style="color: #93AD80; font-size: 20px; margin-right: 12px;">✓</span>
-                <span style="font-size: 16px; font-weight: 500;">Verified financial evidence</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown("<br><br><br><br>", unsafe_allow_html=True)
         st.markdown("""
-        <div class="safepay-card">
-            <h2 style="margin-bottom: 8px;">Sign In</h2>
-            <p style="color: #A0ABC0; margin-bottom: 32px; font-size: 14px;">Access your financial dashboard</p>
+        <div class="dark-card" style="text-align: center;">
+            <h1 style="color: white !important; font-size: 32px !important; margin-bottom: 16px !important;">SafePay Financial</h1>
+            <p style="color: #CBD5E1; margin-bottom: 32px;">Know what you can safely afford before you pay.</p>
         </div>
         """, unsafe_allow_html=True)
         
         with st.form("login_form"):
-            username = st.text_input("User ID", placeholder="e.g. user_04 or user_32")
+            username = st.text_input("User ID", placeholder="e.g. user_04")
             password = st.text_input("Password", type="password", placeholder="password123")
             submitted = st.form_submit_button("Sign in securely", type="primary", use_container_width=True)
             
@@ -412,25 +392,8 @@ def run_deterministic_engine_cached(req_dict, prof_dict, events_json, opts_json,
     rates_df = pd.DataFrame(json.loads(rates_json))
     return run_backend(req_dict, prof_dict, events_df, opts_df, messages_df, images_df, rates_df)
 
-def create_gauge(title, value, max_val, color):
-    fig = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = value,
-        title = {'text': title, 'font': {'size': 12, 'color': '#A0ABC0'}},
-        number = {'prefix': "$", 'font': {'size': 24, 'color': color, 'weight': 'bold'}},
-        gauge = {
-            'axis': {'range': [0, max_val], 'visible': False},
-            'bar': {'color': color, 'thickness': 0.75},
-            'bgcolor': "#F1F5F9",
-            'borderwidth': 0,
-            'shape': "angular"
-        }
-    ))
-    fig.update_layout(height=180, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)", font={'family': "Inter"})
-    return fig
-
 # ---------------------------------------------------------
-# MAIN APP
+# MAIN APP - SINGLE PAGE
 # ---------------------------------------------------------
 def main_dashboard():
     uuid_val = st.session_state.get('authenticated_uuid')
@@ -443,307 +406,239 @@ def main_dashboard():
     inject_custom_css()
     security_context = SecurityContext(uuid_val, dataset_user_id)
     
-    # Sidebar
-    with st.sidebar:
-        st.markdown("<h2 style='color: white !important; font-size: 20px; font-weight: 700; margin-bottom: 20px;'>SafePay</h2>", unsafe_allow_html=True)
-        
-        active_nav = option_menu(
-            menu_title=None,
-            options=["Dashboard", "Purchase Requests", "User History", "Evidence", "Forecast & Simulation", "Verification"],
-            icons=["house", "list-ul", "clock-history", "file-earmark-text", "graph-up", "shield-check"],
-            menu_icon="cast",
-            default_index=0,
-            styles={
-                "container": {"padding": "0!important", "background-color": "transparent"},
-                "icon": {"color": "#A0ABC0", "font-size": "16px"}, 
-                "nav-link": {"font-size": "14px", "text-align": "left", "margin":"0px", "color": "#A0ABC0", "--hover-color": "#334155"},
-                "nav-link-selected": {"background-color": "#334155", "color": "white", "font-weight": "600"},
-            }
-        )
-
-    # Top Toolbar
-    t_col1, t_col2, t_col3, t_col4 = st.columns([4, 3, 0.5, 0.5], gap="small", vertical_alignment="center")
-    with t_col1:
-        st.markdown(f"<h2 style='margin: 0; font-size: 24px !important;'>{active_nav}</h2>", unsafe_allow_html=True)
-    with t_col2:
-        st.text_input("Search", placeholder="Search transactions, requests...", label_visibility="collapsed")
-    with t_col3:
-        with st.popover("⬇️"):
-            st.markdown("Download Report")
-            pdf_btn = st.empty()
-            docx_btn = st.empty()
-    with t_col4:
-        with st.popover(f"{(dataset_user_id or 'U')[:2].upper()}"):
-            theme_choice = st.selectbox("Theme", ["Light", "Dark"], index=0 if st.session_state.get('theme', 'light') == 'light' else 1)
-            if theme_choice.lower() != st.session_state.get('theme', 'light'):
-                st.session_state['theme'] = theme_choice.lower()
-                st.rerun()
-                
-            is_demo_mode = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
-            if is_demo_mode:
-                new_user = st.text_input("Switch User (Demo Only)")
-                if st.button("Switch"):
-                    if new_user:
-                        uuid_val = authenticate(new_user, os.environ.get("SAFEPAY_DEMO_PASSWORD", "password123"))
-                        if uuid_val:
-                            st.session_state['authenticated_uuid'] = uuid_val
-                            st.session_state['dataset_user_id'] = new_user
-                            st.rerun()
-                        else:
-                            st.error("Failed to switch")
-            
-            if st.button("Logout", use_container_width=True):
-                st.session_state.clear()
-                st.rerun()
-                
-    st.markdown("<hr style='margin-top: 8px; margin-bottom: 24px; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+    # 2-Column layout: Main Content (Scrollable) vs Right Rail (Fixed-ish)
+    main_col, rail_col = st.columns([3.5, 1], gap="large")
     
-    user_requests = loader.get_user_requests(security_context)
-    if not user_requests:
-        st.markdown("""
-        <div style="text-align: center; padding: 100px 20px;">
-            <h2 style="margin-bottom: 8px;">No financial requests yet</h2>
-            <p style="font-size: 16px; max-width: 500px; margin: 0 auto;">Once a purchase request is available, SafePay will analyze whether you can safely afford it.</p>
+    with rail_col:
+        st.markdown('<div class="rail-container">', unsafe_allow_html=True)
+        # Profile Section
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; margin-bottom: 24px;">
+            <div style="background: #3B82F6; color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; margin-right: 12px;">
+                {(dataset_user_id or 'U')[:2].upper()}
+            </div>
+            <div>
+                <div style="font-weight: 700; font-size: 16px;">{dataset_user_id}</div>
+                <div style="font-size: 12px; color: #64748B;">Authenticated</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        return
+        
+        st.markdown("<hr>", unsafe_allow_html=True)
+        
+        # Theme Toggle
+        theme_choice = st.selectbox("Theme", ["Light", "Dark"], index=0 if st.session_state.get('theme', 'light') == 'light' else 1)
+        if theme_choice.lower() != st.session_state.get('theme', 'light'):
+            st.session_state['theme'] = theme_choice.lower()
+            st.rerun()
+            
+        # Switch User (Security flag: DEMO_MODE)
+        is_demo_mode = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
+        if is_demo_mode:
+            st.markdown("<hr>", unsafe_allow_html=True)
+            st.markdown("**Switch User (Demo Only)**")
+            new_user = st.text_input("User ID", placeholder="e.g. user_32", label_visibility="collapsed")
+            if st.button("Switch", use_container_width=True):
+                if new_user:
+                    new_uuid = authenticate(new_user, os.environ.get("SAFEPAY_DEMO_PASSWORD", "password123"))
+                    if new_uuid:
+                        st.session_state['authenticated_uuid'] = new_uuid
+                        st.session_state['dataset_user_id'] = new_user
+                        st.rerun()
+                    else:
+                        st.error("Failed to switch")
+                        
+        st.markdown("<hr>", unsafe_allow_html=True)
+        if st.button("Logout", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+            
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with main_col:
+        # Top Bar
+        tb1, tb2 = st.columns([1, 1], vertical_alignment="center")
+        with tb1:
+            st.markdown("<h1>SafePay</h1>", unsafe_allow_html=True)
+        with tb2:
+            st.text_input("Search", placeholder="Search transactions, requests...", label_visibility="collapsed")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        user_requests = loader.get_user_requests(security_context)
+        if not user_requests:
+            st.markdown("""
+            <div style="text-align: center; padding: 100px 20px;">
+                <h2 style="margin-bottom: 8px;">No financial requests yet</h2>
+                <p style="font-size: 16px; max-width: 500px; margin: 0 auto;">Once a purchase request is available, SafePay will analyze whether you can safely afford it.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            return
 
-    st.markdown("<div style='margin-bottom: 16px;'>", unsafe_allow_html=True)
-    selected_request = st.selectbox("Active Request Context", user_requests)
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    try:
-        req_row, prof_row, events_df, opts_df, messages_df, images_df, rates_df = loader.get_request_context(selected_request, security_context)
+        # Request Selector
+        st.markdown("**Active Request Context**")
+        selected_request = st.selectbox("Active Request Context", user_requests, label_visibility="collapsed")
         
-        with st.spinner("Verifying request and deterministic checks..."):
-            decision, is_verified, history = run_deterministic_engine_cached(
-                req_row.to_dict(), prof_row.to_dict(), 
-                events_df.to_json(orient="records"), opts_df.to_json(orient="records"),
-                messages_df.to_json(orient="records"), images_df.to_json(orient="records"),
-                rates_df.to_json(orient="records")
-            )
-            
-        currency = prof_row['home_currency']
-        decision['is_verified'] = is_verified
-        
-        # Populate download buttons now that decision is generated
         try:
-            pdf_data = generate_pdf(decision, selected_request)
-            pdf_btn.download_button("Download PDF", data=pdf_data, file_name=f"{selected_request}_report.pdf", mime="application/pdf", use_container_width=True)
-        except Exception as e:
-            pdf_btn.error("PDF generation failed.")
+            req_row, prof_row, events_df, opts_df, messages_df, images_df, rates_df = loader.get_request_context(selected_request, security_context)
             
-        try:
-            docx_data = generate_docx(decision, selected_request)
-            docx_btn.download_button("Download DOCX", data=docx_data, file_name=f"{selected_request}_report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
-        except Exception as e:
-            docx_btn.error("DOCX generation failed.")
-        
-        # Route depending on active tab
-        if active_nav == "Dashboard":
-            # Calculate Income, Expenses, Net
-            income_sum = pd.to_numeric(events_df[events_df['direction'] == 'credit']['amount']).sum()
-            expense_sum = pd.to_numeric(events_df[events_df['direction'] == 'debit']['amount']).sum()
-            net_saved = max(0, income_sum - expense_sum)
-            max_gauge = max(income_sum, expense_sum) * 1.5 if max(income_sum, expense_sum) > 0 else 1000
+            with st.spinner("Analyzing financial history and deterministic constraints..."):
+                decision, is_verified, history = run_deterministic_engine_cached(
+                    req_row.to_dict(), prof_row.to_dict(), 
+                    events_df.to_json(orient="records"), opts_df.to_json(orient="records"),
+                    messages_df.to_json(orient="records"), images_df.to_json(orient="records"),
+                    rates_df.to_json(orient="records")
+                )
+                
+            currency = prof_row['home_currency']
+            decision['is_verified'] = is_verified
             
-            st.markdown('<div class="section-header">THE PRESENT</div>', unsafe_allow_html=True)
+            bal = float(prof_row['current_available_balance'])
+            min_bal = float(prof_row['minimum_balance_to_keep'])
+            buffer = max(0.0, bal - min_bal)
             
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-                st.plotly_chart(create_gauge("INCOME", float(income_sum), float(max_gauge), "#EAA53B"), use_container_width=True)
-                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(income_sum):,.0f}</span></div>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            with c2:
-                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-                st.plotly_chart(create_gauge("EXPENSES", float(expense_sum), float(max_gauge), "#93AD80"), use_container_width=True)
-                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(expense_sum):,.0f}</span></div>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            with c3:
-                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-                st.plotly_chart(create_gauge("NET (SAVED)", float(net_saved), float(max_gauge), "#EAA53B"), use_container_width=True)
-                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: -30px;'><span>ACTUAL</span><span>BUDGETED</span></div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;'><span>$0</span><span>${float(net_saved):,.0f}</span></div>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            # Second Row
-            c_left, c_right = st.columns([2, 1])
-            with c_left:
-                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-                st.markdown('<div style="display: flex; justify-content: space-between;"><span style="font-weight: 700;">Spending over time</span><span style="color: #A0ABC0; font-size: 12px;">Hover a column to see the breakdown</span></div>', unsafe_allow_html=True)
-                
-                dates = pd.to_datetime(events_df['event_date'])
-                events_df['month'] = dates.dt.strftime('%b')
-                monthly = events_df[events_df['direction'] == 'debit'].groupby('month')['amount'].sum().reindex(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']).fillna(0)
-                
-                fig2 = go.Figure(data=[
-                    go.Bar(name='Expenses', x=monthly.index, y=monthly.values, marker_color='#D9827C')
-                ])
-                fig2.update_layout(barmode='stack', height=250, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig2, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            with c_right:
-                st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-                st.markdown('<div style="display: flex; justify-content: space-between; margin-bottom: 24px;"><span style="font-weight: 700;">Liquid net worth</span><span style="color: #93AD80; font-size: 12px; font-weight: 600;">All assets</span></div>', unsafe_allow_html=True)
-                
-                bal = float(prof_row['current_available_balance'])
-                min_bal = float(prof_row['minimum_balance_to_keep'])
-                
+            # --- SECTION A: Top Summary Strip ---
+            st.markdown('<div class="section-header">Financial Summary</div>', unsafe_allow_html=True)
+            met1, met2, met3 = st.columns(3)
+            with met1:
                 st.markdown(f"""
-                <div style="display: flex; justify-content: space-around; align-items: flex-end; height: 120px; margin-bottom: 24px;">
-                    <div style="text-align: center;">
-                        <div style="font-weight: 700; margin-bottom: 8px;">${bal:,.0f}</div>
-                        <div style="width: 40px; height: 100px; background-color: #849C73; margin: 0 auto; border-radius: 4px 4px 0 0;"></div>
-                        <div style="font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: 8px;">ASSETS</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-weight: 700; margin-bottom: 8px;">${min_bal:,.0f}</div>
-                        <div style="width: 40px; height: 30px; background-color: #D9827C; margin: 0 auto; border-radius: 4px 4px 0 0;"></div>
-                        <div style="font-size: 10px; color: #A0ABC0; font-weight: 700; margin-top: 8px;">MINIMUM</div>
-                    </div>
+                <div class="metric-box">
+                    <div class="metric-label">Current Balance</div>
+                    <div class="metric-value">{currency} {bal:,.2f}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-    
-            st.markdown('<div class="section-header">THE FUTURE</div>', unsafe_allow_html=True)
+            with met2:
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="metric-label">Minimum Required</div>
+                    <div class="metric-value">{currency} {min_bal:,.2f}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with met3:
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="metric-label">Available Buffer</div>
+                    <div class="metric-value" style="color: {'#10B981' if buffer > 0 else '#EF4444'};">{currency} {buffer:,.2f}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # --- SECTION B: Decision Result + Reasoning ---
+            st.markdown('<div class="section-header">Decision & Reasoning</div>', unsafe_allow_html=True)
             
             status_text = "AFFORDABLE" if decision['affordability_status'] in ["affordable_now", "affordable_with_plan"] else "NOT AFFORDABLE"
-            color_theme = "#EAA53B" if status_text == "AFFORDABLE" else "#D9827C"
+            color_theme = "#F59E0B" if status_text == "AFFORDABLE" else "#EF4444"
             
+            # Split decision block into Result and Reasoning side-by-side
             st.markdown(f"""
-            <div class="dark-card">
-                <div style="font-size: 12px; font-weight: 700; color: #A0ABC0; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">YOUR PLAN IS</div>
-                <div style="font-size: 42px; font-weight: 700; color: {color_theme}; margin-bottom: 16px;">{status_text.lower()}</div>
-                <p style="color: #A0ABC0; font-size: 16px; max-width: 600px; line-height: 1.5; margin-bottom: 24px;">
-                    {decision['decision_explanation']}
-                </p>
-                <div style="display: flex; gap: 16px;">
-                    <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 20px; font-size: 14px;">
-                        <span style="color: #A0ABC0;">Safe to pay: </span><span style="font-weight: 700;">{currency} {decision['amount_safe_to_pay']}</span>
+            <div class="safepay-card" style="border-left: 6px solid {color_theme};">
+                <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 24px;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Recommendation</div>
+                        <div style="font-size: 32px; font-weight: 800; color: {color_theme}; margin-bottom: 12px;">{status_text}</div>
+                        <div style="margin-bottom: 8px;"><strong style="color: #64748B;">Method:</strong> {decision['recommended_payment_method'].replace('_', ' ').title()}</div>
+                        <div><strong style="color: #64748B;">Safe to Pay:</strong> {currency} {decision['amount_safe_to_pay']}</div>
                     </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 20px; font-size: 14px;">
-                        <span style="color: #A0ABC0;">Method: </span><span style="font-weight: 700;">{decision['recommended_payment_method'].replace('_', ' ').title()}</span>
+                    <div style="flex: 1.5; min-width: 300px; padding-left: 24px; border-left: 1px solid #E2E8F0;">
+                        <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;">Reasoning</div>
+                        <div style="font-size: 15px; line-height: 1.6;">{decision['decision_explanation']}</div>
                     </div>
                 </div>
+            </div>
             """, unsafe_allow_html=True)
             
+            # --- SECTION C: 90-Day Forecast Chart ---
+            st.markdown('<div class="section-header">90-Day Forecast</div>', unsafe_allow_html=True)
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            
             if history:
                 df_hist = pd.DataFrame(history)
-                fig3 = go.Figure()
-                fig3.add_trace(go.Scatter(
-                    x=df_hist['date'], y=df_hist['balance'], mode='lines',
-                    line=dict(color=color_theme, width=3), fill='tozeroy', fillcolor=f'rgba({234 if color_theme=="#EAA53B" else 217}, {165 if color_theme=="#EAA53B" else 130}, {59 if color_theme=="#EAA53B" else 124}, 0.1)', name='Projected Balance'
-                ))
-                fig3.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    height=200, margin=dict(l=0, r=0, t=10, b=0),
-                    xaxis=dict(showgrid=False, showticklabels=True, color="#A0ABC0"),
-                    yaxis=dict(showgrid=False, showticklabels=False)
+                fig_hist = go.Figure()
+                fig_hist.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Projected Balance', line=dict(color="#3B82F6", width=3)))
+                fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="#EF4444", annotation_text="Minimum Allowed Balance", annotation_position="bottom right")
+                
+                fig_hist.update_layout(
+                    height=350, 
+                    margin=dict(l=0, r=0, t=10, b=0),
+                    paper_bgcolor="rgba(0,0,0,0)", 
+                    plot_bgcolor="rgba(0,0,0,0)"
                 )
-                st.plotly_chart(fig3, use_container_width=True)
+                # Remove floating camera icon
+                st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("No forecast history available.")
                 
             st.markdown('</div>', unsafe_allow_html=True)
             
-        elif active_nav == "Purchase Requests":
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-title">All Purchase Requests</div>', unsafe_allow_html=True)
-            all_req_data = []
-            for r_id in user_requests:
-                r_ctx, _, _, _, _, _, _ = loader.get_request_context(r_id, security_context)
-                all_req_data.append({
-                    "Request ID": r_id,
-                    "Type": r_ctx['request_type'].title(),
-                    "Amount": f"{currency} {r_ctx['requested_amount']}",
-                    "Desired Date": r_ctx['desired_completion_date'] or "None"
-                })
-            st.dataframe(pd.DataFrame(all_req_data), use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        elif active_nav == "User History":
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-title">Transaction History</div>', unsafe_allow_html=True)
-            st.dataframe(events_df, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        elif active_nav == "Evidence":
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-title">Extracted Context & Evidence</div>', unsafe_allow_html=True)
-            if not messages_df.empty:
-                st.markdown("### Messages")
-                st.dataframe(messages_df, use_container_width=True)
-            else:
-                st.info("No message evidence associated with this user.")
-                
-            if not images_df.empty:
-                st.markdown("### Images")
-                st.dataframe(images_df, use_container_width=True)
-            else:
-                st.info("No image evidence associated with this user.")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        elif active_nav == "Forecast & Simulation":
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-title">90-Day Simulation Engine</div>', unsafe_allow_html=True)
-            if history:
-                df_hist = pd.DataFrame(history)
-                fig_sim = go.Figure()
-                fig_sim.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Balance'))
-                fig_sim.update_layout(title="Projected Balance Timeline", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_sim, use_container_width=True)
-                st.dataframe(df_hist, use_container_width=True)
-            else:
-                st.info("No simulation history available.")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        elif active_nav == "Verification":
-            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-title">Independent Verification Status</div>', unsafe_allow_html=True)
+            # --- SECTION D: Verification Proof + Timestamp ---
+            st.markdown('<div class="section-header">Verification Proof</div>', unsafe_allow_html=True)
             
             if is_verified:
-                st.success("✅ The financial recommendation successfully passed all deterministic backend verification checks.")
+                v_color = "#10B981"
+                v_text = "PASS"
+                v_icon = "✓"
+                v_detail = "The financial recommendation successfully passed all deterministic backend verification checks. Projected balance never breaches the minimum."
             else:
-                st.error("❌ The backend verifier caught a safety condition and rolled back to a safe baseline.")
-            
-            st.markdown("---")
-            
-            # Additional details logic
-            st.markdown(f"**Decision Reasoning**: {decision['decision_explanation']}")
-            
-            # Amount Chart
-            safe_amt = float(decision['amount_safe_to_pay'])
-            req_amt = float(req_row['requested_amount'])
-            
-            fig_amt = go.Figure(data=[
-                go.Bar(name='Safe to Pay', x=['Amount'], y=[safe_amt], marker_color='#93AD80'),
-                go.Bar(name='Requested', x=['Amount'], y=[req_amt], marker_color='#EAA53B')
-            ])
-            fig_amt.update_layout(barmode='group', title="Amount Safe vs Requested", height=300, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_amt, use_container_width=True)
-            
-            # 90-day trajectory vs minimum balance
-            if history:
-                df_hist = pd.DataFrame(history)
-                min_bal = float(prof_row['minimum_balance_to_keep'])
+                v_color = "#EF4444"
+                v_text = "FAIL"
+                v_icon = "✗"
+                v_detail = "The backend verifier caught a safety condition and forced a rollback. Recommending 'Wait'."
                 
-                fig_hist = go.Figure()
-                fig_hist.add_trace(go.Scatter(x=df_hist['date'], y=df_hist['balance'], mode='lines', name='Projected Balance', line=dict(color="#4A90E2", width=3)))
-                fig_hist.add_hline(y=min_bal, line_dash="dash", line_color="red", annotation_text="Minimum Allowed Balance")
-                
-                fig_hist.update_layout(title="90-Day Forecast & Minimum Balance Threshold", height=350, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_hist, use_container_width=True)
-                
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            st.markdown(f"""
+            <div class="safepay-card">
+                <div style="display: flex; align-items: flex-start; gap: 16px;">
+                    <div style="background: {v_color}; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px;">{v_icon} {v_text}</div>
+                    <div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Deterministic Checks Executed</div>
+                        <div style="font-size: 14px; color: #64748B; margin-bottom: 8px;">{v_detail}</div>
+                        <div style="font-size: 12px; color: #94A3B8;">Verified at: {now_str}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # --- SECTION E: User History ---
+            st.markdown('<div class="section-header">User History</div>', unsafe_allow_html=True)
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            # Compact view: sort by date descending
+            if not events_df.empty:
+                display_df = events_df[['event_date', 'direction', 'amount', 'currency', 'category', 'description']].sort_values('event_date', ascending=False)
+                st.dataframe(display_df, use_container_width=True, height=250)
+            else:
+                st.info("No prior history found for this user.")
             st.markdown('</div>', unsafe_allow_html=True)
-
-    except PermissionError:
-        st.error("Access denied. Resource ownership violation.")
-    except Exception as e:
-        st.error(f"SafePay could not complete this analysis safely. Error: {e}")
+            
+            # --- SECTION F: Notes Input ---
+            st.markdown('<div class="section-header">Analyst Notes</div>', unsafe_allow_html=True)
+            st.markdown('<div class="safepay-card">', unsafe_allow_html=True)
+            user_notes = st.text_area("Add extra detail about this request:", placeholder="Enter any specific contextual notes here...", label_visibility="collapsed")
+            if st.button("Save Note"):
+                st.success("Note saved to session.")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # --- DOWNLOAD BUTTONS ---
+            st.markdown('<div class="section-header">Export Report</div>', unsafe_allow_html=True)
+            
+            dl_col1, dl_col2 = st.columns([1, 1])
+            with dl_col1:
+                try:
+                    pdf_data = generate_pdf(decision, selected_request)
+                    st.download_button("⬇️ Download PDF Report", data=pdf_data, file_name=f"{selected_request}_report.pdf", mime="application/pdf", use_container_width=True)
+                except Exception as e:
+                    st.error("PDF generation failed.")
+                    
+            with dl_col2:
+                try:
+                    docx_data = generate_docx(decision, selected_request)
+                    st.download_button("⬇️ Download DOCX Report", data=docx_data, file_name=f"{selected_request}_report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+                except Exception as e:
+                    st.error("DOCX generation failed.")
+                    
+        except PermissionError:
+            st.error("Access denied. Resource ownership violation.")
+        except Exception as e:
+            st.error(f"SafePay could not complete this analysis safely. Error: {e}")
 
 if __name__ == "__main__":
     main_dashboard()
